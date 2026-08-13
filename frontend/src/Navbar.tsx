@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
-
+import {useNavigate} from "react-router";
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const headerData = [
     {
       name: "Profile",
@@ -15,7 +16,10 @@ function Navbar() {
   ]
 
   function navItems({name, link}: {name: string, link: string}){
-    return <a href={link} className="nav-item hover:shadow-md hover:rounded hover:text-bold hover:bg-gray-200 text-center px-4 py-2 m-2 md:p-4 md:m-0">{name}</a>
+    return <a href={link} className="nav-item hover:shadow-md hover:rounded hover:text-bold hover:bg-gray-200 text-center px-4 py-2 m-2 md:p-4 md:m-0" onClick={(e) => {
+      e.preventDefault();
+      navigate(link);
+    }}>{name}</a>
   }
 
   return <>
