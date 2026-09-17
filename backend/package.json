@@ -1,0 +1,47 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "",
+    "license": "ISC",
+    "author": "",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "test": "NODE_ENV=test vitest --coverage",
+        "test_migration_run": "NODE_ENV=test typeorm-ts-node-esm migration:run -d ./src/dataSource.ts",
+        "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/dataSource.ts",
+        "migration_run": "NODE_ENV=dev typeorm-ts-node-esm migration:run -d ./src/dataSource.ts",
+        "migration_revert": "NODE_ENV=dev typeorm-ts-node-esm migration:revert -d ./src/dataSource.ts",
+        "migration_generate": "NODE_ENV=dev typeorm-ts-node-esm migration:generate -d ./src/dataSource.ts ./src/migrations"
+    },
+    "engines": {
+        "node": ">=26.0.0"
+    },
+    "dependencies": {
+        "bcrypt": "^6.0.0",
+        "body-parser": "^2.3.0",
+        "crypto": "^1.0.1",
+        "dotenv": "^17.4.2",
+        "jsonwebtoken": "^9.0.3",
+        "pg": "^8.23.0",
+        "reflect-metadata": "^0.2.2",
+        "typeorm": "^1.1.0",
+        "vitest": "^5.0.0"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^6.0.0",
+        "@types/express": "^5.0.6",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^26.5.1",
+        "@typescript/native": "npm:typescript@^7.0.2",
+        "@vitest/coverage-v8": "^5.0.0",
+        "nodemon": "^3.1.14",
+        "sequelize-cli": "^6.6.5",
+        "ts-node": "^10.9.2",
+        "tsx": "^4.23.13"
+    },
+    "allowScripts": {
+        "esbuild@0.28.2": true,
+        "fsevents@2.3.3": true
+    }
+}
