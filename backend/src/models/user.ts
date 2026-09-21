@@ -4,6 +4,7 @@ import emailVerificationRepository from "./repository/emailVerificationRepositor
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { EmailVerificationCode } from "./entity/emailVerificationCode.js";
+import { JWT_SECRET_KEY } from "../config.js";
 
 class User {
     public viewProducts(): Array<Record<string, string>> {
@@ -233,12 +234,18 @@ class User {
     }
 
     private static jwtEncrypt(token: string): string {
-        return jwt.sign({ id: token }, "your_secret_key", { expiresIn: "1h" });
+        if(!JWT_SECRET_KEY){
+            throw new Error("JWT_SECRET_KEY is not defined");
+        }
+        return jwt.sign({ id: token }, JWT_SECRET_KEY, { expiresIn: "1h" });
     }
 
     private static jwtDecrypt(token: string): string {
+        if(!JWT_SECRET_KEY){
+            throw new Error("JWT_SECRET_KEY is not defined");
+        }
         try {
-            const decoded = jwt.verify(token, "your_secret_key") as { id: string };
+            const decoded = jwt.verify(token, JWT_SECRET_KEY) as { id: string };
             return decoded.id;
         } catch (error) {
             console.error("Error decrypting JWT:", error);
