@@ -7,6 +7,8 @@
     "type": "module",
     "main": "index.js",
     "scripts": {
+        "build": "tsc",
+        "start": "NODE_ENV=dev tsx src/app.ts",
         "test": "NODE_ENV=test vitest --coverage",
         "test_migration_run": "NODE_ENV=test typeorm-ts-node-esm migration:run -d ./src/dataSource.ts",
         "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/dataSource.ts",
@@ -20,9 +22,12 @@
     "dependencies": {
         "bcrypt": "^6.0.0",
         "body-parser": "^2.3.0",
+        "cookie-parser": "^1.4.7",
         "crypto": "^1.0.1",
         "dotenv": "^17.4.2",
+        "express": "^5.2.1",
         "jsonwebtoken": "^9.0.3",
+        "nodemailer": "^10.0.10",
         "pg": "^8.23.0",
         "reflect-metadata": "^0.2.2",
         "typeorm": "^1.1.0",
@@ -42,6 +47,7 @@
     },
     "allowScripts": {
         "esbuild@0.28.2": true,
-        "fsevents@2.3.3": true
+        "fsevents@2.3.3": true,
+        "bcrypt@6.0.0": true
     }
 }

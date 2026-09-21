@@ -1,10 +1,11 @@
-import "reflect-metadata";
-import dataSource from "./dataSource.js";
+import express from "express";
+import bodyParser from "body-parser";
 
-try {
-    await dataSource.initialize();
-    console.log("Data Source has been initialized!");
-} catch (err) {
-    console.error("Error during Data Source initialization:", err);
-    process.exit(1);
-}
+const app = express();
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});

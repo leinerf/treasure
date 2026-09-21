@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import { User } from "./entity/user.js";
-import { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE } from './config.js';
-import { EmailVerificationCode } from "./entity/emailVerificationCode.js";
+import { User } from "../models/entity/user.js";
+import { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE } from '../config.js';
+import { EmailVerificationCode } from "../models/entity/emailVerificationCode.js";
 const dataSource = new DataSource({
     type: "postgres",
     host: DB_HOST!,

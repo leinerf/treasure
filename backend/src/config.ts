@@ -6,6 +6,10 @@ const {
     DB_USERNAME,
     DB_PASSWORD,
     NODE_ENV,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    GMAIL_ADDRESS,
+    APP_PASSWORD,
 } = process.env;
 
 if (!NODE_ENV) {
@@ -29,4 +33,4 @@ if (!process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]) {
 
 const DB_DATABASE = process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]
 
-export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV };
+export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV, CLIENT_ID, CLIENT_SECRET, GMAIL_ADDRESS, APP_PASSWORD };
