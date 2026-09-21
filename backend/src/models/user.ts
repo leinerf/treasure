@@ -1,9 +1,10 @@
-import { User as UserEntity } from "../entity/user.js";
-import userRepository from "../repository/userRepository.js";
-import emailVerificationRepository from "../repository/emailVerificationRepository.js";
+import { User as UserEntity } from "./entity/user.js";
+import userRepository from "./repository/userRepository.js";
+import emailVerificationRepository from "./repository/emailVerificationRepository.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import type { EmailVerificationCode } from "../entity/emailVerificationCode.js";
+import type { EmailVerificationCode } from "./entity/emailVerificationCode.js";
+
 class User {
     public viewProducts(): Array<Record<string, string>> {
         return []
@@ -38,11 +39,12 @@ class User {
 
     public deleteOrder(id: string, jwt: string): void {}
 
-    public static async createEmailVerificationCode(email: string): Promise<{ emailCode?: {email: string, code: string}, success: boolean }> {
+    public static async createEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean }> {
         // create email verification code logic here
         try {
             const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
                 email,
+                code: String(Math.floor(100000 + Math.random() * 900000))
             });
             return { emailCode, success: true }
         } catch (error) {
@@ -51,6 +53,23 @@ class User {
         }
     }
 
+    public static async updateEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean }> {
+        try {
+            const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
+            if(!emailCode){
+                console.error("Email verification code not found for email: " + email);
+                return { success: false }
+            }
+            emailCode.code = String(Math.floor(100000 + Math.random() * 900000));
+            emailCode.verified = false;
+            await emailVerificationRepository.save(emailCode);
+            return { emailCode, success: true }
+        } catch (error) {
+            console.error("Error updating email verification code:", error);
+            return { success: false }
+        }
+    }
+    
     public static async verifyEmail(email: string, code: string): Promise<{ success: boolean }> {
         try {
             const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code } });
@@ -122,6 +141,11 @@ class User {
             console.error("User not found with id: " + userId);
             return { success: false }
         }
+        
+        if(existingUser.username === newUsername){
+            console.error("New username is the same as the current username");
+            return { success: false }
+        }
         // update username logic here
         existingUser.username = newUsername;
         await userRepository.save(existingUser);
@@ -149,6 +173,30 @@ class User {
         return { success: true }
     }
     
+    public static async updateEmail(newEmail: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean }> {
+        const userId = User.jwtDecrypt(jwt);
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            console.error("User not found with id: " + userId);
+            return { success: false }
+        }
+        // update email logic here
+        const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email: newEmail } });
+        
+        if(!emailCode) {
+            console.error("Email verification code not found for email: " + newEmail);
+            return { success: false }
+        }
+
+        if(!emailCode.verified){
+            console.error("Email verification code not verified for email: " + newEmail);
+            return { success: false }
+        }
+        existingUser.email = newEmail;
+        await userRepository.save(existingUser);
+        return { newUser: existingUser, success: true }
+    }
+
     public async updateAddress(newAddress: Record<string, string>, jwt: string): Promise<{ success: boolean }> {
         return { success: true }
     }
