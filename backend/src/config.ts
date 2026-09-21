@@ -10,6 +10,7 @@ const {
     CLIENT_SECRET,
     GMAIL_ADDRESS,
     APP_PASSWORD,
+    JWT_SECRET_KEY,
 } = process.env;
 
 if (!NODE_ENV) {
@@ -31,6 +32,10 @@ if (!process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]) {
     throw new Error("DB_DATABASE is not defined");
 }
 
+if (!JWT_SECRET_KEY) {
+    throw new Error("JWT_SECRET_KEY is not defined");
+}
+
 const DB_DATABASE = process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]
 
-export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV, CLIENT_ID, CLIENT_SECRET, GMAIL_ADDRESS, APP_PASSWORD };
+export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV, CLIENT_ID, CLIENT_SECRET, GMAIL_ADDRESS, APP_PASSWORD, JWT_SECRET_KEY };
