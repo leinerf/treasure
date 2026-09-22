@@ -130,6 +130,16 @@ class User {
             return { success: false }
         }
     }
+    
+    public static async getUser(jwt: string): Promise<{ user?: UserEntity, success: boolean }> {
+        const userId = User.jwtDecrypt(jwt);
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            console.error("User not found with id: " + userId);
+            return { success: false }
+        }
+        return { user: existingUser, success: true }
+    }
 
     public static async updateUsername(newUsername: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean }> {
         if(!User.validateUsername(newUsername)){

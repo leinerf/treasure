@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 
 import dataSource from "./infra/dataSource.js";
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import { auth as authMiddleware } from "./middleware/auth.js";
 
 try {
     await dataSource.initialize();
@@ -20,7 +22,7 @@ app.use(cookieParser());
 const PORT = process.env.PORT || 3000;
 
 app.use("/api/auth", authRoutes);
-
+app.use("/api/user", authMiddleware, userRoutes);
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
