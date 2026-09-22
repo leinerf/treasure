@@ -219,7 +219,7 @@ class User {
     }
 
     public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string, success: boolean }> {
-        // find user by email and password
+        // find user by username and password
         const existingUser: UserEntity | null = await userRepository.findOne({ where: { username } });
         if(!existingUser){
             console.error("User does not exist with username: " + username);

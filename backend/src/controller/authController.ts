@@ -2,7 +2,7 @@ import { type Request, type Response } from "express";
 import User from "../models/user.js";
 import EmailService from "../services/emailService.js";
 
-class UserController {
+class AuthController {
     // Define controller methods here
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         try {
@@ -18,6 +18,7 @@ class UserController {
             return res.status(200).json({ message: "Verification email sent successfully" });
         }
         catch (error) {
+            console.error(error);
             return res.status(500).json({ message: "An error occurred", error });
         }
     }
@@ -32,6 +33,7 @@ class UserController {
             return res.status(200).json({ message: "Email verified successfully" });
         }
         catch (error) {
+            console.error(error);
             return res.status(500).json({ message: "An error occurred", error });
         }
     }
@@ -46,20 +48,22 @@ class UserController {
             return res.status(200).json({ message: "User registered successfully" });
         }
         catch (error) {
+            console.error(error);
             return res.status(500).json({ message: "An error occurred", error });
         }
     }
 
     public static async login(req: Request, res: Response): Promise<Response> {
         try {
-            const { email, password } = req.body;
-            const { jwt, success } = await User.createUserAuthentication(email, password);
+            const { username, password } = req.body;
+            const { jwt, success } = await User.createUserAuthentication(username, password);
             if(!success || !jwt){
                 return res.status(400).json({ message: "Failed to login" });
             }
             return res.status(200).cookie("jwt", jwt, { httpOnly: true }).json({ message: "Login successful" });
         }
         catch (error) {
+            console.error(error);
             return res.status(500).json({ message: "An error occurred", error });
         }
     }
@@ -70,9 +74,10 @@ class UserController {
             return res.status(200).json({ message: "Logout successful" });
         }
         catch (error) {
+            console.error(error);
             return res.status(500).json({ message: "An error occurred", error });
         }
     }
 }
 
-export default UserController;
+export default AuthController;
