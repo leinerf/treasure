@@ -10,11 +10,11 @@
         "build": "tsc",
         "start": "NODE_ENV=dev tsx src/app.ts",
         "test": "NODE_ENV=test vitest",
-        "test_migration_run": "NODE_ENV=test typeorm-ts-node-esm migration:run -d ./src/dataSource.ts",
-        "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/dataSource.ts",
-        "migration_run": "NODE_ENV=dev typeorm-ts-node-esm migration:run -d ./src/dataSource.ts",
-        "migration_revert": "NODE_ENV=dev typeorm-ts-node-esm migration:revert -d ./src/dataSource.ts",
-        "migration_generate": "NODE_ENV=dev typeorm-ts-node-esm migration:generate -d ./src/dataSource.ts ./src/migrations"
+        "test_migration_run": "NODE_ENV=test typeorm-ts-node-esm migration:run -d ./src/infra/dataSource.ts",
+        "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/infra/dataSource.ts",
+        "migration_run": "NODE_ENV=dev typeorm-ts-node-esm migration:run -d ./src/infra/dataSource.ts",
+        "migration_revert": "NODE_ENV=dev typeorm-ts-node-esm migration:revert -d ./src/infra/dataSource.ts",
+        "migration_generate": "NODE_ENV=dev typeorm-ts-node-esm migration:generate -d ./src/infra/dataSource.ts ./src/migrations"
     },
     "engines": {
         "node": ">=26.0.0"
@@ -35,6 +35,7 @@
     },
     "devDependencies": {
         "@types/bcrypt": "^6.0.0",
+        "@types/cookie-parser": "^1.4.10",
         "@types/express": "^5.0.6",
         "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^26.5.1",
