@@ -21,6 +21,10 @@ app.use(cookieParser());
 
 const PORT = process.env.PORT || 3000;
 
+app.get("/api/test", (req, res) => {
+    console.log("Test API endpoint hit");
+    res.send("Welcome to the API");
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/user", authMiddleware, userRoutes);
 app.listen(PORT, () => {
