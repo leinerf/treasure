@@ -43,6 +43,17 @@ class User {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean }> {
         // create email verification code logic here
         try {
+            if(!User.validateEmail(email)){
+                console.error("could not validate email: " + email);
+                return { success: false }
+            }
+            const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
+            if(existingEmailCode){
+                const newCode = String(Math.floor(100000 + Math.random() * 900000))
+                existingEmailCode.code = newCode;
+                await emailVerificationRepository.save(existingEmailCode);
+                return { emailCode: existingEmailCode, success: true }
+            }
             const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
                 email,
                 code: String(Math.floor(100000 + Math.random() * 900000))
@@ -54,22 +65,6 @@ class User {
         }
     }
 
-    public static async updateEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean }> {
-        try {
-            const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
-            if(!emailCode){
-                console.error("Email verification code not found for email: " + email);
-                return { success: false }
-            }
-            emailCode.code = String(Math.floor(100000 + Math.random() * 900000));
-            emailCode.verified = false;
-            await emailVerificationRepository.save(emailCode);
-            return { emailCode, success: true }
-        } catch (error) {
-            console.error("Error updating email verification code:", error);
-            return { success: false }
-        }
-    }
     
     public static async verifyEmail(email: string, code: string): Promise<{ success: boolean }> {
         try {

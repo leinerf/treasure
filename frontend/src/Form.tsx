@@ -1,16 +1,15 @@
 function Input({name, label, type, value, placeholder, data, setData}: {name: string, label: string, type: string, value: string, placeholder: string, data: Record<string, string[]>, setData: (data: Record<string, string[]>) => void}){
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setData({...data, [name]: [data[name][0], e.target.value]});
-        console.log(data);
+        setData({...data, [name]: [data[name][0], data[name][1], data[name][2], e.target.value]});
     }
 
     return <div>
         <label className="block text-gray-700 text-sm font-bold mb-2">{label}</label>
-        <input name={name} value={value} type={type} placeholder={placeholder} className="border border-gray-300 rounded px-4 py-2 mb-4 w-full" onChange={handleChange} />
+        <input name={name} value={value} type={type} placeholder={placeholder} required={true} className="border border-gray-300 rounded px-4 py-2 mb-4 w-full" onChange={handleChange} />
     </div>    
 }
 
-function Form({title, data, setData, handleSubmit, onClose=undefined}: {title: string, data: Record<string, string[]>, setData: (data: Record<string, string[]>) => void, handleSubmit: () => void, onClose?: () => void}) {
+function Form({title, data, setData, handleSubmit, onClose=() => {} }: {title: string, data: Record<string, string[]>, setData: (data: Record<string, string[]>) => void, handleSubmit: () => void, onClose?: () => void}) {
     return <>
     <form onSubmit={(e) => {
         e.preventDefault();
