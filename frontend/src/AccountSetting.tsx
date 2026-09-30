@@ -79,22 +79,22 @@ function AccountSetting() {
         }
     };
 
-    // const handleUpdatePassword = async (e: React.FormEvent) => {
-    //     e.preventDefault();
-    //     if (newPassword !== confirmPassword) {
-    //         console.error("New password and confirm password do not match");
-    //         return;
-    //     }
-    //     try {
-    //         const { data, status } = await ApiCalls.updatePassword(password, newPassword);
-    //         if (status !== 200) {
-    //             console.error("Failed to update password: Status code", status);
-    //         }
-    //         console.log(data.message);
-    //     } catch (error) {
-    //         console.error("Failed to update password:", error);
-    //     }
-    // };
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            console.error("New password and confirm password do not match");
+            return;
+        }
+        try {
+            const { data, status } = await ApiCalls.updatePassword(password, newPassword);
+            if (status !== 200) {
+                console.error("Failed to update password: Status code", status);
+            }
+            console.log(data.message);
+        } catch (error) {
+            console.error("Failed to update password:", error);
+        }
+    };
     return (
         <>
         {showVerificationCode && <VerificationCode verifyHandler={verifyHandler} resendHandler={resendHandler} />}
@@ -131,7 +131,7 @@ function AccountSetting() {
                     <div className="mb-4 flex flex-col">
                         <label htmlFor="confirmPassword" className="block mb-2">Confirm Password:</label>
                         <input type="password" id="confirmPassword" name="confirmPassword" className="border p-2 rounded-md" onChange={(e) => setConfirmPassword(e.target.value)} value={confirmPassword} />
-                        <button type="submit" className="bg-blue-500 text-white p-2 rounded-md m-2  w-32 self-end">Update</button>
+                        <button type="submit" className="bg-blue-500 text-white p-2 rounded-md m-2  w-32 self-end" onClick={handleUpdatePassword}>Update</button>
                     </div>
                     
                     
