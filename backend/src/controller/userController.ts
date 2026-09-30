@@ -40,8 +40,8 @@ class UserController {
             if (!jwt) {
                 return res.status(401).json({ message: "Unauthorized" });
             }
-            const { newPassword } = req.body;
-            const { success } = await User.updatePassword(newPassword, jwt);
+            const { oldPassword, newPassword } = req.body;
+            const { success } = await User.updatePassword(oldPassword, newPassword, jwt);
             if(!success){
                 return res.status(400).json({ message: "Failed to update password" });
             }
