@@ -5,9 +5,6 @@ class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
         try {
             const jwt = req.cookies.jwt;
-            if (!jwt) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
             // Replace the following line with your actual user retrieval logic
             const { user, success } = await User.getUser(jwt);
             if(!success){
@@ -24,15 +21,12 @@ class UserController {
     public static async updateUsername(req: Request, res: Response): Promise<Response> {
         try {
             const jwt = req.cookies.jwt;
-            if (!jwt) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
             const { newUsername } = req.body;
             const { newUser, success } = await User.updateUsername(newUsername, jwt);
             if(!success){
                 return res.status(400).json({ message: "Failed to update username" });
             }
-            return res.status(200).json({ newUser });
+            return res.status(200).json({ newUser, message: "Username updated successfully" });
         }
         catch (error) {
             console.error(error);
