@@ -158,7 +158,7 @@ class User {
         return { newUser: existingUser, success: true }
     }
 
-    public static async updatePassword(newPassword: string, jwt: string): Promise<{ success: boolean }> {
+    public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ success: boolean }> {
         if(!User.validatePassword(newPassword)){
             console.error("could not validate password: " + newPassword);
             return { success: false }
@@ -170,6 +170,10 @@ class User {
             return { success: false }
         }
         // update password logic here
+        if(!User.validateHash(oldPassword, existingUser.password)){
+            console.error("Old password is incorrect");
+            return { success: false }
+        }
         if(User.validateHash(newPassword, existingUser.password)){
             console.error("New password is the same as the old password");
             return { success: false }

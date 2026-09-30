@@ -274,27 +274,27 @@ describe('User Model Tests', () => {
     });
     test('update user password', async () => {
       const newPassword = 'newPassword123!';
-      const { success } = await User.updatePassword(newPassword, jwt);
+      const { success } = await User.updatePassword(password, newPassword, jwt);
       expect(success).toBe(true);
 
       // Revert to the original password
-      const { success: revertSuccess } = await User.updatePassword(password, jwt);
+      const { success: revertSuccess } = await User.updatePassword(newPassword, password, jwt);
       expect(revertSuccess).toBe(true);
     });
     test('update user invalid password', async () => {
       // Test updating password with a password that is too short
       const shortPassword = '123';
-      const { success: shortPasswordSuccess } = await User.updatePassword(shortPassword, jwt);
+      const { success: shortPasswordSuccess } = await User.updatePassword(password, shortPassword, jwt);
       expect(shortPasswordSuccess).toBe(false);
 
       // Test updating password with a password that is too weak
       const weakPassword = 'password';
-      const { success: weakPasswordSuccess } = await User.updatePassword(weakPassword, jwt);
+      const { success: weakPasswordSuccess } = await User.updatePassword(password, weakPassword, jwt);
       expect(weakPasswordSuccess).toBe(false);
 
       // Test updating password with the same password as the current one
       const samePassword = password;
-      const { success: samePasswordSuccess } = await User.updatePassword(samePassword, jwt);
+      const { success: samePasswordSuccess } = await User.updatePassword(password, samePassword, jwt);
       expect(samePasswordSuccess).toBe(false);
     });
     test('update user email', async () => {
