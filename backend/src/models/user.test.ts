@@ -53,7 +53,6 @@ describe('User Model Tests', () => {
       expect(emailCode).toHaveProperty('verified', false);
       expect(success).toBe(true);
       
-      
       // verify email code
       const { success: verificationSuccess } = await User.verifyEmail(email, emailCode.code)
       expect(verificationSuccess).toBe(true);

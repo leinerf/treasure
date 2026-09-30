@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Form from "./Form";
-import VerificationCode from "./verificationCode";
+import VerificationCode from "./VerificationCode";
 import ApiCalls from "./services/apiCalls";
 import {useNavigate} from "react-router-dom";
 function Register() {
