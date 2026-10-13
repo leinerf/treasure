@@ -75,6 +75,7 @@ function Register() {
             console.error("Error resending email verification", data.message);
         }
     }
+
     return (
         <>
         <Form title="Register" data={formData} setData={setFormData} handleSubmit={formSubmitHandler} />

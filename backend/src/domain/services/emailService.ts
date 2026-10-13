@@ -1,4 +1,4 @@
-import transporter from "../infra/emailSMTP.js"
+import transporter from "../../infra/emailSMTP.js"
 
 class EmailService {
     public static async sendEmail(to: string, subject: string, body: string): Promise<boolean> {
@@ -21,6 +21,12 @@ class EmailService {
     public static async sendVerificationEmail(to: string, code: string): Promise<boolean> {
         const subject = "Email Verification Code";
         const body = `Your verification code is: ${code}`;
+        return await EmailService.sendEmail(to, subject, body);
+    }
+
+    public static async sendPasswordResetEmail(to: string, code: string, url: string): Promise<boolean> {
+        const subject = "Password Reset Code";
+        const body = `You can reset your password using the following link: ${url}/reset-password/${code}`;
         return await EmailService.sendEmail(to, subject, body);
     }
 }

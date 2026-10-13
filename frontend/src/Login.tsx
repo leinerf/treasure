@@ -2,13 +2,15 @@ import { useState } from "react";
 import Form from "./Form";
 import {useLocation, useNavigate} from "react-router-dom";
 import ApiCalls from "./services/apiCalls";
+import { useContext } from "react";
+import UserAuthContext from "./contexts/UserAuthContext"
 
 function Login() {
     const [formData, setFormData] = useState<Record<string, string[]>>({
         username:["Username", "text", "john_doe", ""],
         password:["Password", "password", "secret123", ""]
     });
-
+    const { login } = useContext(UserAuthContext);
     const navigate = useNavigate();
     const location = useLocation();
     const registerComplete = location.state?.registerComplete;
@@ -27,7 +29,7 @@ function Login() {
         const password = formData.password[3];
         const { data, status } = await ApiCalls.login({ username, password });
         if(status === 200) {
-            localStorage.setItem("authenticated", "true");
+            login(username);
             navigate("/profile")
         } else {
             console.error("Login failed:", data.message);
@@ -37,7 +39,15 @@ function Login() {
     return (
         <>
         {registerComplete && successfulRegistrationMessage()}
-            <Form title="Login" data={formData} setData={setFormData} handleSubmit={submitHandler} />
+        
+        <Form title="Login" data={formData} setData={setFormData} handleSubmit={submitHandler} />
+        <a
+            onClick={() => navigate("/create-password-reset")}
+            className="text-blue-500 hover:underline"
+        >
+            Forgot Password?
+        </a>
+            
         </>
     );
 }

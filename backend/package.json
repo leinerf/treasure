@@ -8,7 +8,7 @@
     "main": "index.js",
     "scripts": {
         "build": "tsc",
-        "start": "NODE_ENV=dev tsx src/app.ts",
+        "start": "NODE_ENV=dev tsx src/app/api/index.ts",
         "test": "NODE_ENV=test vitest",
         "test_migration_run": "NODE_ENV=test typeorm-ts-node-esm migration:run -d ./src/infra/dataSource.ts",
         "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/infra/dataSource.ts",

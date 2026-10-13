@@ -1,9 +1,9 @@
 import User from './user.js';
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
-import { User as UserEntity } from "./entity/user.js";
 import emailVerificationRepository from './repository/emailVerificationRepository.js';
-import  dataSource from '../infra/dataSource.js';
+import  dataSource from '../../infra/dataSource.js'
 import userRepository from './repository/userRepository.js';
+import passwordResetCodeRepository from './repository/passwordResetCodeRepository.js';
 
 describe('User Model Tests', () => {
   // Setup
@@ -13,9 +13,15 @@ describe('User Model Tests', () => {
 
   beforeAll(async () => {
     await dataSource.initialize();
+    await emailVerificationRepository.deleteAll();
+    await passwordResetCodeRepository.deleteAll();
+    await userRepository.deleteAll();
   });
 
   afterAll(async () => {
+    await emailVerificationRepository.deleteAll();
+    await passwordResetCodeRepository.deleteAll();
+    await userRepository.deleteAll();
     await dataSource.destroy();
   });
 
@@ -296,6 +302,25 @@ describe('User Model Tests', () => {
       const samePassword = password;
       const { success: samePasswordSuccess } = await User.updatePassword(password, samePassword, jwt);
       expect(samePasswordSuccess).toBe(false);
+    });
+    test('user reset password', async () => {
+      const { passwordResetCode, success: resetCodeSuccess } = await User.createPasswordResetCode(email);
+      expect(resetCodeSuccess).toBe(true);
+      expect(passwordResetCode).toBeDefined();
+      expect(passwordResetCode?.code).toBeDefined();
+
+      const newPassword = 'newPassword123!';
+      const { success: resetSuccess } = await User.resetPassword(newPassword, passwordResetCode!.code);
+      expect(resetSuccess).toBe(true);
+      const { jwt: newJwt, success: newAuthSuccess } = await User.createUserAuthentication(username, newPassword);
+      expect(newAuthSuccess).toBe(true);
+      expect(newJwt).toBeDefined();
+      
+      // Revert to the original password
+      const { success: revertSuccess } = await User.updatePassword(newPassword, password, jwt);
+      expect(revertSuccess).toBe(true);
+      // clean up the password reset code
+      await passwordResetCodeRepository.delete({code: passwordResetCode!.code});
     });
     test('update user email', async () => {
       const newEmail = 'newemail@example.com';
