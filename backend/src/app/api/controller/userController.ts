@@ -1,11 +1,10 @@
 import { type Request, type Response } from "express";  
-import User from "../models/user.js";
+import User from "../../../domain/models/user.js";
 
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
         try {
             const jwt = req.cookies.jwt;
-            // Replace the following line with your actual user retrieval logic
             const { user, success } = await User.getUser(jwt);
             if(!success){
                 return res.status(404).json({ message: "User not found" });

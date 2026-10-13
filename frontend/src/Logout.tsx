@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ApiCalls from "./services/apiCalls";
+import { useContext } from "react";
+import UserAuthContext from "./contexts/UserAuthContext";
 
 function Logout() {
+    const { login } = useContext(UserAuthContext);
     const navigate = useNavigate();
     const handleLogout = async () => {
         try {
@@ -10,6 +13,7 @@ function Logout() {
             if (status !== 200) {
                 console.error("Failed to logout: Status code", status);
             }
+            login("");
             console.log(data.message);
         } catch (error) {
             console.error("Failed to logout:", error);
@@ -17,7 +21,6 @@ function Logout() {
     };
     useEffect(() => {
         handleLogout();
-        localStorage.clear();
         navigate("/login")
     }, []);
     return (

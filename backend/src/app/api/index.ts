@@ -2,10 +2,10 @@ import express from "express";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 
-import dataSource from "./infra/dataSource.js";
+import dataSource from "../../infra/dataSource.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import { auth as authMiddleware } from "./middleware/auth.js";
+import { auth as authMiddleware } from "../middleware/auth.js";
 
 try {
     await dataSource.initialize();

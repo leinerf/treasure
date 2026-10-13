@@ -1,10 +1,12 @@
 import { User as UserEntity } from "./entity/user.js";
 import userRepository from "./repository/userRepository.js";
 import emailVerificationRepository from "./repository/emailVerificationRepository.js";
+import passwordResetCodeRepository from "./repository/passwordResetCodeRepository.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { EmailVerificationCode } from "./entity/emailVerificationCode.js";
-import { JWT_SECRET_KEY } from "../config.js";
+import type { PasswordResetCode } from "./entity/passwordResetCode.js";
+import { JWT_SECRET_KEY } from "../../config.js";
 
 class User {
     public viewProducts(): Array<Record<string, string>> {
@@ -65,7 +67,6 @@ class User {
         }
     }
 
-    
     public static async verifyEmail(email: string, code: string): Promise<{ success: boolean }> {
         try {
             const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code } });
@@ -119,6 +120,7 @@ class User {
                 email,
                 password: hashedPassword,
             });
+
             return { newUser: newUser,   success: true }
         } catch (error) {
             console.error("Error creating new user:", error);
@@ -181,6 +183,54 @@ class User {
         existingUser.password = User.hash(newPassword);
         await userRepository.save(existingUser);
         return { success: true }
+    }
+
+    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode?: PasswordResetCode, success: boolean }> {
+        // create password reset code logic here
+        try {
+            const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const passwordResetCode = await passwordResetCodeRepository.save({
+                code: resetCode,
+                email: email
+            });
+            if(!passwordResetCode){
+                console.error("Failed to create password reset code");
+                return { success: false }
+            }
+            
+            return { passwordResetCode, success: true }
+        } catch (error) {
+            console.error("Error creating password reset code:", error);
+            return { success: false }
+        }
+    }
+
+    public static async resetPassword(newPassword: string, code: string): Promise<{ success: boolean }> {
+        try {
+            console.log(newPassword);
+            console.log(code);
+            const passwordResetCode = await passwordResetCodeRepository.findOne({ where: { code } });
+            if(!passwordResetCode){
+                console.error("Password reset code not found: " + code);
+                return { success: false }
+            }
+            const user: UserEntity | null = await userRepository.findOne({ where: { email: passwordResetCode.email } });
+            if(!user){
+                console.error("User not found with email: " + passwordResetCode.email);
+                return { success: false }
+            }
+            if(!User.validatePassword(newPassword)){
+                console.error("Invalid new password: " + newPassword);
+                return { success: false }
+            }
+            user.password = User.hash(newPassword);
+            await userRepository.save(user);
+            await passwordResetCodeRepository.remove(passwordResetCode);
+            return { success: true }
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            return { success: false }
+        }
     }
     
     public static async updateEmail(newEmail: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean }> {

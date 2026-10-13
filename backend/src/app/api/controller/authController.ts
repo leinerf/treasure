@@ -1,9 +1,8 @@
 import { type Request, type Response } from "express";  
-import User from "../models/user.js";
-import EmailService from "../services/emailService.js";
+import User from "../../../domain/models/user.js";
+import EmailService from "../../../domain/services/emailService.js";
 
 class AuthController {
-    // Define controller methods here
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         try {
             const { email } = req.body;
@@ -58,9 +57,9 @@ class AuthController {
             const { username, password } = req.body;
             const { jwt, success } = await User.createUserAuthentication(username, password);
             if(!success || !jwt){
-                return res.status(400).json({ message: "Failed to login" });
+                return res.status(400).json({ message: "Failed to authenticate" });
             }
-            return res.status(200).cookie("jwt", jwt, { httpOnly: true }).json({ message: "Login successful" });
+            return res.status(200).cookie("jwt", jwt, { httpOnly: true }).json({ message: "Authentication successful" });
         }
         catch (error) {
             console.error(error);
@@ -71,7 +70,42 @@ class AuthController {
     public static async logout(req: Request, res: Response): Promise<Response> {
         try {
             res.clearCookie("jwt");
-            return res.status(200).json({ message: "Logout successful" });
+            return res.status(200).json({ message: "Authentication cleared successfully" });
+        }
+        catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: "An error occurred", error });
+        }
+    }
+
+    public static async createPasswordReset(req: Request, res: Response): Promise<Response> {
+        try {
+            const { email, url } = req.body;
+            const { passwordResetCode, success } = await User.createPasswordResetCode(email);
+            if(!success || !passwordResetCode || !passwordResetCode.code){
+                return res.status(400).json({ message: "Failed to create password reset code" });
+            }
+            EmailService.sendPasswordResetEmail(email, passwordResetCode.code, url);
+            return res.status(200).json({ message: "Password reset code created successfully", passwordResetCode });
+        }
+        catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: "An error occurred", error });
+        }
+    }
+
+    public static async resetPassword(req: Request, res: Response): Promise<Response> {
+        try {
+            const { newPassword } = req.body;
+            const code  = req.params.id
+            if(typeof code !== "string" || code.trim() === ""  ){
+                return res.status(400).json({ message: "Password reset code is required" });
+            }
+            const { success } = await User.resetPassword(newPassword, code);
+            if(!success){
+                return res.status(400).json({ message: "Failed to reset password" });
+            }
+            return res.status(200).json({ message: "Password reset successfully" });
         }
         catch (error) {
             console.error(error);

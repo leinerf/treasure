@@ -1,4 +1,5 @@
 import axios from "axios";
+import config from "./config";
 
 class ApiCalls {
     static async test(): Promise<{ data: {message: string}, status: number }> {
@@ -19,7 +20,6 @@ class ApiCalls {
             return { data: {message: "Error creating email verification"}, status: 500 };
         }
     }
-
     static async verifyEmail(email: string, code: string): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.post("/api/auth/verify-email", { email, code });
@@ -29,7 +29,6 @@ class ApiCalls {
             return { data: {message: "Error verifying email"}, status: 500 };
         }
     }
-
     static async register(data: { username: string, email: string, password: string }): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.post("/api/auth/register", data);
@@ -39,7 +38,6 @@ class ApiCalls {
             return { data: {message: "Error registering user"}, status: 500 };
         }
     }
-
     static async login(data: {username: string, password: string}): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.post("/api/auth/login", data);
@@ -49,7 +47,6 @@ class ApiCalls {
             return { data: {message: "Error logging in user"}, status: 500 };
         }
     }
-
     static async logout(): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.post("/api/auth/logout");
@@ -59,7 +56,6 @@ class ApiCalls {
             return { data: {message: "Error logging out user"}, status: 500 };
         }
     }
-    
     static async getUserData(): Promise<{ data: {username: string, email: string}, status: number }> {
         try {
             const response = await axios.get("/api/user");
@@ -99,6 +95,28 @@ class ApiCalls {
         } catch (error) {
             console.error("Error updating password:", error);
             return { data: {message: "Error updating password"}, status: 500 };
+        }
+    }
+
+    static async createPasswordReset(email: string): Promise<{ data: {message: string}, status: number }> {
+        try {
+            const url = config.BASE_URL;
+            const response = await axios.post("/api/auth/create-password-reset", { email, url });
+            return { data: response.data, status: response.status };
+        } catch (error) {
+            console.error("Error creating password reset:", error);
+            return { data: {message: "Error creating password reset"}, status: 500 };
+        }
+    }
+
+    static async resetPassword(id: string, newPassword: string): Promise<{ data: {message: string}, status: number }> {
+        try {
+            console.log(`/api/auth/reset-password/${id}`);
+            const response = await axios.post(`/api/auth/reset-password/${id}`, { newPassword });
+            return { data: response.data, status: response.status };
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            return { data: {message: "Error resetting password"}, status: 500 };
         }
     }
 }
