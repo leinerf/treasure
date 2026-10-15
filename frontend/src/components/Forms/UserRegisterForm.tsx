@@ -1,25 +1,25 @@
 import {useState} from "react";
 import Form from "./Form";
-import TextInput from "./TextInput";
-import EmailInput from "./EmailInput";
-import PasswordInput from "./PasswordInput";
-import VerificationCodeInput from "./VerificationCodeInput";
+import TextInput from "./Inputs/TextInput";
+import EmailInput from "./Inputs/EmailInput";
+import PasswordInput from "./Inputs/PasswordInput";
+import VerificationCodeInput from "./Inputs/VerificationCodeInput";
+import { regexInputConfig } from "./Inputs/regexInputConfig";
 
-const UserRegisterForm = () => {
+// Call onSuccess during successful submission
+// Call onFailure during failed submission
+const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void }) => {
     const [username, setUsername] = useState("");
     const [isUsernameValid, setIsUsernameValid] = useState(true)
     // Username validation regex: must start with a letter, can contain letters, numbers, and underscores, and be 3-21 characters long
-    const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{2,20}$/;
     
     const [email, setEmail] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(true);
     // Email validation regex: must be a valid email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
     const [password, setPassword] = useState("");
     const [isPasswordValid, setIsPasswordValid] = useState(true);
     // Password validation regex: must contain at least one lowercase letter, one uppercase letter, one number, one special character, and be at least 8 characters long
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isConfirmPasswordValid, setIsConfirmPasswordValid] = useState(true);
@@ -27,23 +27,22 @@ const UserRegisterForm = () => {
     const confirmPasswordRegex = new RegExp(`^${password}$`);
     
     const [verificationCode, setVerificationCode] = useState("");
+    const [isVerificationCodeValid, setIsVerificationCodeValid] = useState(true);
     
     const submit = {
         buttonText: "Register",
         submitFunction: (e: React.SyntheticEvent) => {
-            console.log("Form submitted");
-            //TODO validation is stil wrong, need to check all fields before setting them as valid
             e.preventDefault();
             let validInputs = true;
-            if (!usernameRegex.test(username)) {
+            if (!regexInputConfig.username.regex.test(username)) {
                 setIsUsernameValid(false);
                 validInputs = false;
             }
-            if (!emailRegex.test(email)) {
+            if (!regexInputConfig.email.regex.test(email)) {
                 setIsEmailValid(false);
                 validInputs = false;
             }
-            if (!passwordRegex.test(password)) {
+            if (!regexInputConfig.password.regex.test(password)) {
                 setIsPasswordValid(false);
                 validInputs = false;
             }
@@ -55,7 +54,15 @@ const UserRegisterForm = () => {
                 return;
             }
             // All inputs are valid, proceed with form submission logic here
-            console.log({ username, email, password, confirmPassword, verificationCode})
+
+            // Call the onSuccess callback if provided
+            if(onSuccess) {
+                onSuccess();
+            } else {
+                if(onFailure) {
+                    onFailure();
+                }
+            }
         },
     };
     return (
@@ -71,7 +78,7 @@ const UserRegisterForm = () => {
                 placeholder="Enter your username"
                 id="username"
                 validInput={isUsernameValid}
-                errorMessage={"Invalid Username"}
+                errorMessage={regexInputConfig.username.errorMessage}
             />
             <EmailInput
                 label="Verified Email"
@@ -84,7 +91,7 @@ const UserRegisterForm = () => {
                 placeholder="Enter your email"
                 id="email"
                 validInput={isEmailValid}
-                errorMessage={"Invalid Email"}
+                errorMessage={regexInputConfig.email.errorMessage}
             />
             <PasswordInput
                 label="Password"
@@ -97,13 +104,7 @@ const UserRegisterForm = () => {
                 placeholder="Enter your password"
                 id="password"
                 validInput={isPasswordValid}
-                errorMessage={[
-                    "At least one lowercase letter",
-                    "At least one uppercase letter",
-                    "At least one number",
-                    "At least one special character",
-                    "Minimum 8 characters"
-                ]}
+                errorMessage={regexInputConfig.password.errorMessage}
             />
             <PasswordInput
                 label="Confirm Password"
@@ -126,8 +127,11 @@ const UserRegisterForm = () => {
                 length={6}
                 onChange={(code) => {
                     setVerificationCode(code);
+                    setIsVerificationCodeValid(true);
                 }}
                 code={verificationCode}
+                validInput={isVerificationCodeValid}
+                errorMessage={regexInputConfig.verificationCode.errorMessage}
             />
         </Form>
     );

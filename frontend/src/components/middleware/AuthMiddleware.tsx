@@ -1,9 +1,9 @@
 import { Outlet } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import UserAuthContext from "./contexts/UserAuthContext";
+import UserAuthContext from "../../contexts/UserAuthContext";
 import { useEffect, useContext } from "react";
 
-function Root() {
+function AuthMiddleware() {
     const navigate = useNavigate();
     const { user } = useContext(UserAuthContext);
     useEffect(() => {
@@ -17,4 +17,4 @@ function Root() {
     );
 }
 
-export default Root;
+export default AuthMiddleware;

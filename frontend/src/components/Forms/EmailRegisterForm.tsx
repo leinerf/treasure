@@ -1,21 +1,29 @@
 import {useState} from "react";
-import EmailInput from "./EmailInput";
+import EmailInput from "./Inputs/EmailInput";
 import Form from "./Form";
-
-function EmailRegisterForm() {
+import { regexInputConfig } from "./Inputs/regexInputConfig";
+// Call onSuccess during successful submission
+function EmailRegisterForm({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void}) {
     const [email, setEmail] = useState(""); 
     const [isEmailValid, setIsEmailValid] = useState(true); 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     const submit = {
         submitFunction: (e: React.SyntheticEvent) => { 
             e.preventDefault();
-            console.log("Email verification submitted");
-            if (!emailRegex.test(email)) {
+            if (!regexInputConfig.email.regex.test(email)) {
                 setIsEmailValid(false);
                 return;
             }
-            console.log("Email is valid:", email);
             // Proceed with email verification logic here
+
+            // Call the onSuccess callback if provided 
+            if(onSuccess) {
+                onSuccess();
+            } else {
+                if(onFailure) {
+                    onFailure();
+                }
+            }
         },
         buttonText: "Verify Email"
     }
@@ -32,7 +40,7 @@ function EmailRegisterForm() {
                 placeholder="Enter your email"
                 id="email"
                 validInput={isEmailValid}
-                errorMessage={"Invalid Email"}
+                errorMessage={regexInputConfig.email.errorMessage}
             />
         </Form>
     );
