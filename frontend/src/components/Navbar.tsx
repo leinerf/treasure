@@ -7,12 +7,7 @@ import UserAuthContext from "../contexts/UserAuthContext";
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useContext(UserAuthContext);
-  const generalLinks = [
-    {
-      name: "Store",
-      link: "/store"
-    }
-  ]
+  const generalLinks = [{ name: "Store", link: "/store" }];
 
   const authenticatedLinks = [
     { name: "Profile", link: "/profile" },
@@ -26,7 +21,7 @@ function Navbar() {
 
   const createNavLinks = (links: { name: string; link: string }[]) => {
     return links.map((item, index) => (
-      <div key={index} className="nav-item">
+      <div key={index} className="nav-item px-4 py-2">
         <NavLink name={item.name} link={item.link} />
       </div>
     ));
@@ -43,7 +38,7 @@ function Navbar() {
             {createNavLinks(generalLinks)}
         </div>  
       </div>
-      <div className="hidden md:flex items-center nav-right">
+      <div className="hidden md:flex  items-center nav-right">
         {user.isAuthenticated && (
           <Dropdown title={user.username}>
             {createNavLinks(authenticatedLinks)}

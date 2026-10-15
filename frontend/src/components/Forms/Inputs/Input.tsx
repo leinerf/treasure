@@ -1,6 +1,6 @@
-import { type InputInterface } from "./interfaces/InputInterface";
+import { type InputInterface } from "./InputInterface";
 
-const Input = ({label, name, value, onChange, placeholder, id, validInput, type, errorMessage}: InputInterface) => {
+const Input = ({label, name, value, onChange, placeholder, id, validInput, type, errorMessage, onSubmit}: InputInterface) => {
     return (
         <div className="mb-4 flex flex-col gap-2 w-full">
             {!validInput && typeof errorMessage === "string" && <span className="border rounded-sm border-red-300 bg-red-100 text-red-500 text-sm p-2">{errorMessage}</span>}
@@ -21,8 +21,15 @@ const Input = ({label, name, value, onChange, placeholder, id, validInput, type,
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
+                autoComplete="on"
                 className="border border-gray-300 rounded p-2 w-full"
             />
+
+            {onSubmit && (
+                <button type="submit" onClick={onSubmit} className="mt-2 bg-blue-500 text-white p-2 rounded">
+                    Submit
+                </button>
+            )}
         </div>
     );
 };

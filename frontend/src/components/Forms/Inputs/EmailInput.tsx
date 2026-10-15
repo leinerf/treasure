@@ -1,4 +1,4 @@
-import { type InputInterface } from "./interfaces/InputInterface";
+import { type InputInterface } from "./InputInterface";
 import Input from "./Input";
 
 type EmailInputInterface = Omit<InputInterface, "type">;

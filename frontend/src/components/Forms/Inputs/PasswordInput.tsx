@@ -1,4 +1,4 @@
-import { type InputInterface } from "./interfaces/InputInterface";
+import { type InputInterface } from "./InputInterface";
 import Input from "./Input";
 interface PasswordInputInterface extends Omit<InputInterface, "type"> {
     errorMessage: string[]; 

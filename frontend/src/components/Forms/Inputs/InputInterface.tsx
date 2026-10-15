@@ -8,6 +8,7 @@ interface InputInterface {
     validInput: boolean;
     errorMessage: string | string[];
     placeholder: string;
+    onSubmit?: (e: React.SyntheticEvent) => void;
 }
 
 export { type InputInterface };
