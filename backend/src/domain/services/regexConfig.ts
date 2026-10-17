@@ -1,5 +1,4 @@
-
-export const regexInputConfig = {
+export const regexConfig = {
     email: {
         regex: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         errorMessage: "Invalid email"

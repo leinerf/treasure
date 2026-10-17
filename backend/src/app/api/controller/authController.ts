@@ -22,25 +22,10 @@ class AuthController {
         }
     }
 
-    public static async verifyEmail(req: Request, res: Response): Promise<Response> {
-        try {
-            const { email, code } = req.body;
-            const { success } = await User.verifyEmail(email, code);
-            if(!success){
-                return res.status(400).json({ message: "Invalid or expired verification code" });
-            }
-            return res.status(200).json({ message: "Email verified successfully" });
-        }
-        catch (error) {
-            console.error(error);
-            return res.status(500).json({ message: "An error occurred", error });
-        }
-    }
-
     public static async register(req: Request, res: Response): Promise<Response> {
         try {
-            const { username, email, password } = req.body;
-            const { success } = await User.createNewUser(username,email, password);
+            const { username, email, emailVerificationCode, password } = req.body;
+            const { success } = await User.createNewUser(username, email, emailVerificationCode, password);
             if(!success){
                 return res.status(400).json({ message: "Failed to register user" });
             }

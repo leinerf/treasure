@@ -11,6 +11,7 @@ const {
     GMAIL_ADDRESS,
     APP_PASSWORD,
     JWT_SECRET_KEY,
+    SALT_ROUNDS
 } = process.env;
 
 if (!NODE_ENV) {
@@ -35,7 +36,10 @@ if (!process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]) {
 if (!JWT_SECRET_KEY) {
     throw new Error("JWT_SECRET_KEY is not defined");
 }
+if (!SALT_ROUNDS) {
+    throw new Error("SALT_ROUNDS is not defined");
+}
 
 const DB_DATABASE = process.env[`DB_DATABASE_${NODE_ENV.toUpperCase()}`]
 
-export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV, CLIENT_ID, CLIENT_SECRET, GMAIL_ADDRESS, APP_PASSWORD, JWT_SECRET_KEY };
+export { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, NODE_ENV, CLIENT_ID, CLIENT_SECRET, GMAIL_ADDRESS, APP_PASSWORD, JWT_SECRET_KEY, SALT_ROUNDS };

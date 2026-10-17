@@ -6,7 +6,8 @@ export class InitPasswordResetCode1790816286682 implements MigrationInterface {
         await queryRunner.query(`
             CREATE TABLE "password_reset_code" (
             "code" VARCHAR(255) NOT NULL PRIMARY KEY,
-            "email" VARCHAR(255) NOT NULL
+            "email" VARCHAR(255) NOT NULL,
+            "expirationDate" TIMESTAMP NOT NULL
             )
         `);
     }

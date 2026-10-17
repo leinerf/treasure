@@ -58,8 +58,8 @@ class UserController {
             if (!jwt) {
                 return res.status(401).json({ message: "Unauthorized" });
             }
-            const { newEmail } = req.body;
-            const { newUser, success } = await User.updateEmail(newEmail, jwt);
+            const { newEmail, emailVerificationCode } = req.body;
+            const { newUser, success } = await User.updateEmail(newEmail, emailVerificationCode, jwt);
             if(!success){
                 return res.status(400).json({ message: "Failed to update email" });
             }
