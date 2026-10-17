@@ -12,16 +12,6 @@ import crypto from "crypto";
 import { regexConfig } from "../services/regexConfig.js";
 import dataSource from "../../infra/dataSource.js";
 
-function generateRandomCode(length: number = 6): string {
-    return crypto.randomInt(Math.pow(10, length - 1), Math.pow(10, length)).toString();
-}
-
-function expireAt(minutes: number = 10): Date {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + minutes);
-    return now;
-}
-
 class User {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean, error?: string }> {
         try {
@@ -35,8 +25,8 @@ class User {
             }
             const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
                 email,
-                code: generateRandomCode(),
-                expireAt: expireAt()
+                code: User.generateRandomCode(),
+                expireAt: User.expireAt()
             });
             return { emailCode, success: true }
         } catch (error) {
@@ -81,7 +71,6 @@ class User {
                 return { success: false, error: "User with this email already exists: " + email }
             }
 
-            // Save the new user and remove the used email verification code atomically
             await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
                 await transactionalEntityManager.save(UserEntity, {
                     username,
@@ -184,11 +173,11 @@ class User {
             if(existingPasswordResetCode){
                 await passwordResetCodeRepository.remove(existingPasswordResetCode);
             }
-            const resetCode = generateRandomCode();
+
             const passwordResetCode = await passwordResetCodeRepository.save({
-                code: resetCode,
+                code: User.generateRandomCode(),
                 email: email,
-                expirationDate: expireAt()
+                expirationDate: User.expireAt()
             });
 
             if(!passwordResetCode){
@@ -349,6 +338,16 @@ class User {
             return false;
         }
         return true;
+    }
+
+    private static generateRandomCode(length: number = 6): string {
+        return crypto.randomInt(Math.pow(10, length - 1), Math.pow(10, length)).toString();
+    }
+
+    private static expireAt(minutes: number = 10): Date {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + minutes);
+        return now;
     }
 }
 export default User;
