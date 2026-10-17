@@ -1,7 +1,6 @@
 import { useState, useContext } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import './assets/styles/index.css'
-import Home from './Home'
 import AuthMiddleware from './components/middleware/AuthMiddleware'
 import Navbar from './components/Navbar'
 import UserAuthContext from "./contexts/UserAuthContext";
@@ -10,8 +9,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Logout from './pages/Logout';
 import PasswordReset from "./pages/PasswordReset";
-
-
 
 function App() {
     const { user: contextUser } = useContext(UserAuthContext);
@@ -35,7 +32,6 @@ function App() {
         <div className="justify-center items-center flex flex-col mt-8">
         <Routes>
             <Route path="/" element={<AuthMiddleware/>}>
-                <Route index element={<Home />} />
                 <Route path="profile" element={
                     <Profile />
                 } />

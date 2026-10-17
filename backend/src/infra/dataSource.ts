@@ -22,7 +22,7 @@ const dataSource = new DataSource({
         EmailVerificationCode,
         PasswordResetCode,
     ],
-    migrations: [__dirname + "/migrations/*{.ts,.js}"],
+    migrations: [__dirname + "/infra/migrations/*{.ts,.js}"],
     migrationsRun: false,
     migrationsTableName: "migrations",
     migrationsTransactionMode: "all",
