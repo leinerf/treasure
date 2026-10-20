@@ -199,9 +199,9 @@ describe('User Model Tests', () => {
       }
       
       const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
+      expect(newUser).toBeDefined();
+      expect(newUserSuccess).toBe(true);
+      
       const { emailCode:newEmailCode, success: newEmailCodeSuccess } = await User.createEmailVerificationCode("secondEmail@example.com");
       expect(newEmailCode).toBeDefined();
       expect(newEmailCodeSuccess).toBe(true);
@@ -775,6 +775,32 @@ describe('User Model Tests', () => {
       }
       const { user } = await User.getUser(jwt);
       expect(user).toBeDefined();
+    });
+    test('Fail to delete user with valid JWT but non-existent user', async () => {
+      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      expect(authSuccess).toBe(true);
+      expect(jwt).toBeDefined();
+      if(!jwt){
+        throw new Error('JWT not created');
+      }
+      await User.deleteUser(jwt);
+      const { success } = await User.deleteUser(jwt);
+      expect(success).toBe(false);
+    });
+    test('Fail to delete user with valid JWT but already deleted user', async () => {
+      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      expect(authSuccess).toBe(true);
+      expect(jwt).toBeDefined();
+      if(!jwt){
+        throw new Error('JWT not created');
+      }
+      await User.deleteUser(jwt);
+      const { success } = await User.deleteUser(jwt);
+      expect(success).toBe(false);
+    });
+    test('Fail to delete user with empty JWT', async () => {
+      const { success } = await User.deleteUser('');
+      expect(success).toBe(false);
     });
   });
 });

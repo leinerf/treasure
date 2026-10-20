@@ -57,8 +57,8 @@ class User {
                 console.error("User with this email already exists: " + email);
                 return { success: false, error: "User with this email already exists: " + email }
             }
-            
-            const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });
+
+            const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });            
             if(existingUserWithUsername){
                 console.error("User with this username already exists: " + username);
                 return { success: false, error: "User with this username already exists: " + username }
