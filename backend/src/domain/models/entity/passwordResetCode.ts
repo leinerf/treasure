@@ -8,6 +8,6 @@ export class PasswordResetCode {
     @Column({type: "varchar", length: 255, unique: true, nullable: false})
     email: string;
 
-    @Column({type: "timestamp", nullable: false, default: new Date(Date.now() + (24 * 60 * 60 * 1000))})
-    expirationDate: Date;
+    @Column({type: "timestamp", nullable: false, default: () => "CURRENT_TIMESTAMP"})
+    expireAt: Date;
 }

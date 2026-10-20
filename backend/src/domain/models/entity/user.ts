@@ -13,7 +13,4 @@ export  class User {
 
     @Column({type: "varchar", nullable: false})
     password: string;
-
-    @Column({type: "json", nullable: true})
-    address: Record<string, string>;
 }

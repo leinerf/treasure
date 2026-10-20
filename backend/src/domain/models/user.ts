@@ -52,6 +52,18 @@ class User {
                 return { success: false, error: "could not validate password: " + password }
             }
 
+            const existingUserWithEmail: UserEntity | null = await userRepository.findOne({ where: { email } });
+            if(existingUserWithEmail){
+                console.error("User with this email already exists: " + email);
+                return { success: false, error: "User with this email already exists: " + email }
+            }
+            
+            const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });
+            if(existingUserWithUsername){
+                console.error("User with this username already exists: " + username);
+                return { success: false, error: "User with this username already exists: " + username }
+            }
+
             const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code: emailVerificationCode } });
             if(!existingEmailCode){
                 console.error("Email is not yet verified: " + email);
@@ -65,12 +77,6 @@ class User {
 
             const hashedPassword = User.hash(password);
     
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { email } });
-            if(existingUser){
-                console.error("User with this email already exists: " + email);
-                return { success: false, error: "User with this email already exists: " + email }
-            }
-
             await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
                 await transactionalEntityManager.save(UserEntity, {
                     username,
@@ -95,6 +101,10 @@ class User {
     
     public static async getUser(jwt: string): Promise<{ user?: UserEntity, success: boolean, error?: string }> {
         const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            console.error("Invalid JWT");
+            return { success: false, error: "Invalid JWT" }
+        }
         try {
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
             if(!existingUser){
@@ -109,12 +119,16 @@ class User {
     }
 
     public static async updateUsername(newUsername: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean, error?: string }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            console.error("Invalid JWT");
+            return { success: false, error: "Invalid JWT" }
+        }
         try {
             if(!User.validateUsername(newUsername)){
                 console.error("could not validate username: " + newUsername);
                 return { success: false, error: "could not validate username: " + newUsername }
             }
-            const userId = User.jwtDecrypt(jwt);
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
             if(!existingUser){
                 console.error("User not found with id: " + userId);
@@ -137,12 +151,17 @@ class User {
     }
 
     public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ success: boolean, error?: string }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            console.error("Invalid JWT");
+            return { success: false, error: "Invalid JWT" }
+        }
         try {
             if(!User.validatePassword(newPassword)){
                 console.error("could not validate password: " + newPassword);
                 return { success: false, error: "could not validate password: " + newPassword }
             }
-            const userId = User.jwtDecrypt(jwt);
+            
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
 
             if(!existingUser){
@@ -155,8 +174,8 @@ class User {
                 return { success: false, error: "Old password is incorrect" }
             }
             if(User.validateHash(newPassword, existingUser.password)){
-                console.error("New password is the same as the old password");
-                return { success: false, error: "New password is the same as the old password" }
+                console.error("New password cannot be the same as the old password");
+                return { success: false, error: "New password cannot be the same as the old password" }
             }
             existingUser.password = User.hash(newPassword);
             await userRepository.save(existingUser);
@@ -169,6 +188,16 @@ class User {
 
     public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode?: PasswordResetCode, success: boolean, error?: string }> {
         try {
+            if(!User.validateEmail(email)){
+                console.error("Invalid email: " + email);
+                return { success: false, error: "Invalid email: " + email }
+            }
+            const existingUser = await userRepository.findOne({ where: { email } });
+            if(!existingUser){
+                console.error("User not found with email: " + email);
+                return { success: false, error: "User not found with email: " + email }
+            }
+            
             const existingPasswordResetCode = await passwordResetCodeRepository.findOne({ where: { email } });
             if(existingPasswordResetCode){
                 await passwordResetCodeRepository.remove(existingPasswordResetCode);
@@ -177,7 +206,7 @@ class User {
             const passwordResetCode = await passwordResetCodeRepository.save({
                 code: User.generateRandomCode(),
                 email: email,
-                expirationDate: User.expireAt()
+                expireAt: User.expireAt()
             });
 
             if(!passwordResetCode){
@@ -200,7 +229,7 @@ class User {
                 return { success: false, error: "Password reset code not found: " + code }
             }
 
-            if(passwordResetCode.expirationDate < new Date()){
+            if(passwordResetCode.expireAt < new Date()){
                 console.error("Password reset code has expired: " + code);
                 return { success: false, error: "Password reset code has expired: " + code  + ". Request a new password reset code." }
             }
@@ -228,8 +257,12 @@ class User {
     }
     
     public static async updateEmail(newEmail: string, emailVerificationCode: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean, error?: string }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            console.error("Invalid JWT");
+            return { success: false, error: "Invalid JWT" }
+        }
         try {
-            const userId = User.jwtDecrypt(jwt);
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
             if(!existingUser){
                 console.error("User not found with id: " + userId);
@@ -255,8 +288,12 @@ class User {
     }
 
     public static async deleteUser(jwt: string): Promise<{ deleted?: UserEntity, success: boolean, error?: string }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            console.error("Invalid JWT");
+            return { success: false, error: "Invalid JWT" }
+        }
         try {
-            const userId = User.jwtDecrypt(jwt);
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
             if(!existingUser){
                 console.error("User not found with id: " + userId);
@@ -270,40 +307,54 @@ class User {
         }
     }
 
-    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string, success: boolean, error?: string }> {
+    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt?: string, success: boolean, error?: string }> {
         try {
             const existingUser: UserEntity | null = await userRepository.findOne({ where: { username } });
             if(!existingUser){
                 console.error("User does not exist with username: " + username);
-                return { jwt: "" , success: false, error: "User does not exist with username: " + username };
+                return { success: false, error: "User does not exist with username: " + username };
             }
 
             if(!User.validateHash(password, existingUser.password)){
                 console.error("Invalid password");
-                return { jwt: "" , success: false, error: "Invalid password" };
+                return { success: false, error: "Invalid password" };
             }
-            return { jwt: User.jwtEncrypt(existingUser.id.toString()), success: true };
+            const jwt = User.jwtEncrypt(existingUser.id.toString());
+            if(!jwt){
+                return { success: false, error: "Error creating JWT" };
+            }
+            return { jwt, success: true };
         } catch (error) {
             console.error("Error creating user authentication:", error);
-            return { jwt: "", success: false, error: "Error creating user authentication" };
+            return { success: false, error: "Error creating user authentication" };
         }
     }
 
-    private static jwtEncrypt(token: string): string {
+    private static jwtEncrypt(token: string): string | null {
+        try {
         if(!JWT_SECRET_KEY){
             console.error("JWT_SECRET_KEY is not defined");
-            return "";
+            return null;
         }
         return jwt.sign({ id: token }, JWT_SECRET_KEY, { expiresIn: "1h" });
+        } catch (error) {
+            console.error("Error encrypting JWT:", error);
+            return null;
+        }
     }
 
-    private static jwtDecrypt(token: string): string {
-        if(!JWT_SECRET_KEY){
-            console.error("JWT_SECRET_KEY is not defined");
-            return "";
-        }
+    private static jwtDecrypt(token: string): string | null {
+        try {
+            if(!JWT_SECRET_KEY){
+                console.error("JWT_SECRET_KEY is not defined");
+                return null;
+            }
         const decoded = jwt.verify(token, JWT_SECRET_KEY) as { id: string };
         return decoded.id;
+        } catch (error) {
+            console.error("Error decrypting JWT:", error);
+            return null;
+        }
     }
 
     private static hash(token: string):  string {
@@ -320,21 +371,27 @@ class User {
     }
 
     private static validateUsername(token: string): boolean {
-        if(!regexConfig.username.regex.test(token)){
+        if(!token){
+            return false;
+        } else if(!regexConfig.username.regex.test(token)){
             return false;
         }
         return true;
     }
     
     private static validateEmail(token: string): boolean {
-        if(!regexConfig.email.regex.test(token)){
+        if(!token){
+            return false;
+        } else if(!regexConfig.email.regex.test(token)){
             return false;
         }
         return true;
     }
 
     private static validatePassword(token: string): boolean {
-        if(!regexConfig.password.regex.test(token)){
+        if(!token){
+            return false;
+        } else if(!regexConfig.password.regex.test(token)){
             return false;
         }
         return true;
