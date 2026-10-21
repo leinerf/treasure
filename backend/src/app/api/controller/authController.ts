@@ -40,9 +40,9 @@ class AuthController {
     public static async login(req: Request, res: Response): Promise<Response> {
         try {
             const { username, password } = req.body;
-            const { jwt, success } = await User.createUserAuthentication(username, password);
+            const { jwt, success, error } = await User.createUserAuthentication(username, password);
             if(!success || !jwt){
-                return res.status(400).json({ message: "Failed to authenticate" });
+                return res.status(400).json({ message:  error || "Failed to authenticate" });
             }
             return res.status(200).cookie("jwt", jwt, { httpOnly: true }).json({ message: "Authentication successful" });
         }
@@ -65,12 +65,15 @@ class AuthController {
 
     public static async createPasswordReset(req: Request, res: Response): Promise<Response> {
         try {
-            const { email, url } = req.body;
+            const { email } = req.body;
             const { passwordResetCode, success } = await User.createPasswordResetCode(email);
             if(!success || !passwordResetCode || !passwordResetCode.code){
                 return res.status(400).json({ message: "Failed to create password reset code" });
             }
-            EmailService.sendPasswordResetEmail(email, passwordResetCode.code, url);
+            const emailSent = await EmailService.sendPasswordResetEmail(email, passwordResetCode.code);
+            if(!emailSent){
+                return res.status(500).json({ message: "Failed to send password reset email" });
+            }
             return res.status(200).json({ message: "Password reset code created successfully", passwordResetCode });
         }
         catch (error) {

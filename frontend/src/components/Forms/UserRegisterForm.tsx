@@ -5,6 +5,7 @@ import EmailInput from "./Inputs/EmailInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import VerificationCodeInput from "./Inputs/VerificationCodeInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
+import apiCalls from "../../util/apiCalls";
 
 // Call onSuccess during successful submission
 // Call onFailure during failed submission
@@ -31,7 +32,7 @@ const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFai
     
     const submit = {
         buttonText: "Register",
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
             let validInputs = true;
             if (!regexInputConfig.username.regex.test(username)) {
@@ -54,9 +55,15 @@ const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFai
                 return;
             }
             // All inputs are valid, proceed with form submission logic here
+            const { status } = await apiCalls.register({
+                username,
+                email,
+                password,
+                emailVerificationCode: verificationCode
+            });
 
             // Call the onSuccess callback if provided
-            if(onSuccess) {
+            if(status === 200 && onSuccess) {
                 onSuccess();
             } else {
                 if(onFailure) {
