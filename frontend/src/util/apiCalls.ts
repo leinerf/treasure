@@ -64,7 +64,6 @@ class ApiCalls {
             return { data: {username: "", email: ""}, status: 500 };
         }
     }
-
     static async updateUsername(username: string): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.put("/api/user/username", { newUsername: username });
@@ -106,7 +105,9 @@ class ApiCalls {
 
     static async resetPassword(id: string, newPassword: string): Promise<{ data: {message: string}, status: number }> {
         try {
-            const response = await axios.post(`/api/auth/reset-password/${id}`, { newPassword });
+            const response = await axios.post(`/api/auth/reset-password/${id}`, { newPassword }, {
+                validateStatus: (status) => status >= 200
+            });
             return { data: response.data, status: response.status };
         } catch (error) {
             console.error("Error resetting password:", error);
