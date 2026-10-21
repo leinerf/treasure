@@ -24,9 +24,9 @@ class EmailService {
         return await EmailService.sendEmail(to, subject, body);
     }
 
-    public static async sendPasswordResetEmail(to: string, code: string, url: string): Promise<boolean> {
+    public static async sendPasswordResetEmail(to: string, code: string): Promise<boolean> {
         const subject = "Password Reset Code";
-        const body = `You can reset your password using the following link: ${url}/reset-password/${code}`;
+        const body = `You can reset your password using the following code: ${code}`;
         return await EmailService.sendEmail(to, subject, body);
     }
 }

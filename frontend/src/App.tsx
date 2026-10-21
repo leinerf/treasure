@@ -14,14 +14,14 @@ function App() {
     const { user: contextUser } = useContext(UserAuthContext);
     const [user, setUser] = useState(contextUser);
 
-    const authenticate = ({username, email, profileImg}: {username: string, email: string, profileImg: File | null}) => {
-        if(!username || username.trim() === ""){
+    const authenticate = ({username, email, profileImg}: {username?: string, email?: string, profileImg?: File | null}) => {
+        if(!username || username.trim() === "" || !email || email.trim() === ""){
             localStorage.setItem("user", JSON.stringify({isAuthenticated: false, username: "", email: ""}));
             setUser({isAuthenticated: false, username: "", email: "", profileImg: null });
         } else {
             // dont save image in localStorage
             localStorage.setItem("user", JSON.stringify({isAuthenticated: true, username, email, profileImg: null}));
-            setUser({isAuthenticated: true, username, email, profileImg: profileImg})
+            setUser({isAuthenticated: true, username, email, profileImg: profileImg || null})
         }
     }
 

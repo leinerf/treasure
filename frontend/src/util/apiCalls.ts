@@ -20,16 +20,7 @@ class ApiCalls {
             return { data: {message: "Error creating email verification"}, status: 500 };
         }
     }
-    static async verifyEmail(email: string, code: string): Promise<{ data: {message: string}, status: number }> {
-        try {
-            const response = await axios.post("/api/auth/verify-email", { email, code });
-            return { data: response.data, status: response.status };
-        } catch (error) {
-            console.error("Error verifying email:", error);
-            return { data: {message: "Error verifying email"}, status: 500 };
-        }
-    }
-    static async register(data: { username: string, email: string, password: string }): Promise<{ data: {message: string}, status: number }> {
+    static async register(data: { username: string, email: string, emailVerificationCode: string, password: string }): Promise<{ data: {message: string}, status: number }> {
         try {
             const response = await axios.post("/api/auth/register", data);
             return { data: response.data, status: response.status };
@@ -40,7 +31,11 @@ class ApiCalls {
     }
     static async login(data: {username: string, password: string}): Promise<{ data: {message: string}, status: number }> {
         try {
-            const response = await axios.post("/api/auth/login", data);
+            const response = await axios.post("/api/auth/login", data, {
+                validateStatus: function (status) {
+                    return status >= 200;
+                }
+            });
             return { data: response.data, status: response.status };
         } catch (error) {
             console.error("Error logging in user:", error);
@@ -111,7 +106,6 @@ class ApiCalls {
 
     static async resetPassword(id: string, newPassword: string): Promise<{ data: {message: string}, status: number }> {
         try {
-            console.log(`/api/auth/reset-password/${id}`);
             const response = await axios.post(`/api/auth/reset-password/${id}`, { newPassword });
             return { data: response.data, status: response.status };
         } catch (error) {

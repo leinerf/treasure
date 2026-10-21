@@ -2,22 +2,23 @@ import {useState} from "react";
 import EmailInput from "./Inputs/EmailInput";
 import Form from "./Form";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
+import apiCalls from "../../util/apiCalls";
 // Call onSuccess during successful submission
 function EmailRegisterForm({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void}) {
     const [email, setEmail] = useState(""); 
     const [isEmailValid, setIsEmailValid] = useState(true); 
 
     const submit = {
-        submitFunction: (e: React.SyntheticEvent) => { 
+        submitFunction: async (e: React.SyntheticEvent) => { 
             e.preventDefault();
             if (!regexInputConfig.email.regex.test(email)) {
                 setIsEmailValid(false);
                 return;
             }
             // Proceed with email verification logic here
-
+            const { status } = await apiCalls.createEmailVerification(email);
             // Call the onSuccess callback if provided 
-            if(onSuccess) {
+            if(status === 200 && onSuccess) {
                 onSuccess();
             } else {
                 if(onFailure) {
