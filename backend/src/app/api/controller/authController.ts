@@ -6,9 +6,9 @@ class AuthController {
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         try {
             const { email } = req.body;
-            const {emailCode, success } = await User.createEmailVerificationCode(email);
+            const {emailCode, success, error } = await User.createEmailVerificationCode(email);
             if(!success || !emailCode || !emailCode.code){
-                return res.status(500).json({ message: "Failed to create email verification code" });
+                return res.status(500).json({ message: error || "Failed to create email verification code" });
             }        
             const emailSentSuccessfully = await EmailService.sendVerificationEmail(email, emailCode.code);
             if(!emailSentSuccessfully){
@@ -25,9 +25,9 @@ class AuthController {
     public static async register(req: Request, res: Response): Promise<Response> {
         try {
             const { username, email, emailVerificationCode, password } = req.body;
-            const { success } = await User.createNewUser(username, email, emailVerificationCode, password);
+            const { success, error } = await User.createNewUser(username, email, emailVerificationCode, password);
             if(!success){
-                return res.status(400).json({ message: "Failed to register user" });
+                return res.status(400).json({ message: error || "Failed to register user" });
             }
             return res.status(200).json({ message: "User registered successfully" });
         }
@@ -66,13 +66,13 @@ class AuthController {
     public static async createPasswordReset(req: Request, res: Response): Promise<Response> {
         try {
             const { email } = req.body;
-            const { passwordResetCode, success } = await User.createPasswordResetCode(email);
+            const { passwordResetCode, success, error } = await User.createPasswordResetCode(email);
             if(!success || !passwordResetCode || !passwordResetCode.code){
-                return res.status(400).json({ message: "Failed to create password reset code" });
+                return res.status(400).json({ message: error || "Failed to create password reset code" });
             }
             const emailSent = await EmailService.sendPasswordResetEmail(email, passwordResetCode.code);
             if(!emailSent){
-                return res.status(500).json({ message: "Failed to send password reset email" });
+                return res.status(500).json({ message: error || "Failed to send password reset email" });
             }
             return res.status(200).json({ message: "Password reset code created successfully", passwordResetCode });
         }
@@ -89,9 +89,9 @@ class AuthController {
             if(typeof code !== "string" || code.trim() === ""  ){
                 return res.status(400).json({ message: "Password reset code is required" });
             }
-            const { success } = await User.resetPassword(newPassword, code);
+            const { success, error } = await User.resetPassword(newPassword, code);
             if(!success){
-                return res.status(400).json({ message: "Failed to reset password" });
+                return res.status(400).json({ message: error || "Failed to reset password" });
             }
             return res.status(200).json({ message: "Password reset successfully" });
         }

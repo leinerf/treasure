@@ -27,12 +27,8 @@ function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: () => void, onFail
                 setIsConfirmPasswordValid(false);
                 return;
             }
-            // Handle password reset logic here
-            console.log("it went through validation")
             const { data, status } = await apiCall.resetPassword(verificationCode, password);
-            console.log("API call response:", data, status);
             if(status === 200 && onSuccess){ 
-                console.log("Password reset successful")
                 onSuccess()
             } else {
                 setErrorMessage(data?.message || "Failed to reset password");
