@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryColumn, EntityManager } from "typeorm";
+
+import { type EntityManager } from "typeorm";
 import { User as UserEntity } from "./entity/user.js";
 import userRepository from "./repository/userRepository.js";
 import emailVerificationRepository from "./repository/emailVerificationRepository.js";
@@ -11,359 +12,298 @@ import { JWT_SECRET_KEY, SALT_ROUNDS } from "../../config.js";
 import crypto from "crypto";
 import { regexConfig } from "../services/regexConfig.js";
 import dataSource from "../../infra/dataSource.js";
+import { InvalidEmailError } from "../errors/InvalidEmailError.js";
+import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
+import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
+import { InvalidJWTError } from "../errors/InvalidJWTError.js";
+import { InvalidPasswordResetCodeError } from "../errors/InvalidPasswordResetCode.js";
+import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
+import { UserExistsError } from "../errors/UserExistsError.js";
+import { UserError } from "../errors/UserError.js";
+import { UserNotFoundError } from "../errors/UserNotFoundError.js";
+import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
+import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
 
 class User {
-    public static async createEmailVerificationCode(email: string): Promise<{ emailCode?: EmailVerificationCode, success: boolean, error?: string }> {
-        try {
-            if(!User.validateEmail(email)){
-                console.error("Invalid email format: " + email);
-                return { success: false, error: "Invalid email format: " + email }
-            }
-            const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
-            if(existingEmailCode){
-                await emailVerificationRepository.remove(existingEmailCode);
-            }
-            const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
+    public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerificationCode }> {
+        if(!User.validateEmail(email)){
+            throw new InvalidEmailError("Invalid email format: " + email);
+        }
+        const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
+        if(existingEmailCode){
+            await emailVerificationRepository.remove(existingEmailCode);
+        }
+        const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
+            email,
+            code: User.generateRandomCode(),
+            expireAt: User.expireAt()
+        });
+        return { emailCode }
+    }
+
+    public static async createNewUser(username: string, email: string, emailVerificationCode: string, password: string): Promise<{ user: UserEntity }> {
+        if(!User.validateUsername(username)){
+            throw new InvalidUsernameError("Invalid username format: " + username);
+        }
+        
+        if(!User.validateEmail(email)){
+            throw new InvalidEmailError("Invalid email format: " + email);
+        }
+
+        if(!User.validatePassword(password)){
+            throw new InvalidPasswordError("Invalid password format: " + password);
+        }
+
+        const existingUserWithEmail: UserEntity | null = await userRepository.findOne({ where: { email } });
+        if(existingUserWithEmail){
+            throw new UserExistsError("User with this email already exists: " + email);
+        }
+
+        const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });            
+        if(existingUserWithUsername){
+            throw new UserExistsError("User with this username already exists: " + username);
+        }
+
+        const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code: emailVerificationCode } });
+        if(!existingEmailCode){
+            throw new EmailVerificationNotFoundError("Email is not yet verified: " + email);
+        }
+        
+        if(existingEmailCode.expireAt < new Date()){
+            throw new InvalidEmailVerificationError("Email verification code has expired for email: " + email + " at " + existingEmailCode.expireAt + ". Request a new verification code.");
+        }
+        
+        const hashedPassword = User.hash(password);
+        if(!hashedPassword){
+            throw new UserError("Failed to hash password");
+        }
+        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
+            await transactionalEntityManager.save(UserEntity, {
+                username,
                 email,
-                code: User.generateRandomCode(),
-                expireAt: User.expireAt()
-            });
-            return { emailCode, success: true }
-        } catch (error) {
-            console.error("Error creating email verification code:", error);
-            return { success: false, error: "Error creating email verification code" }
-        }
-    }
-
-    public static async createNewUser(username: string, email: string, emailVerificationCode: string, password: string): Promise<{ newUser?: UserEntity, success: boolean, error?: string }> {
-        try {
-            if(!User.validateUsername(username)){
-                console.error("could not validate username:  " + username);
-                return { success: false, error: "could not validate username:  " + username }
-            }
-            
-            if(!User.validateEmail(email)){
-                console.error("could not validate email: " + email);
-                return { success: false, error: "could not validate email: " + email }
-            }
-
-            if(!User.validatePassword(password)){
-                console.error("could not validate password: " + password);
-                return { success: false, error: "could not validate password: " + password }
-            }
-
-            const existingUserWithEmail: UserEntity | null = await userRepository.findOne({ where: { email } });
-            if(existingUserWithEmail){
-                console.error("User with this email already exists: " + email);
-                return { success: false, error: "User with this email already exists: " + email }
-            }
-
-            const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });            
-            if(existingUserWithUsername){
-                console.error("User with this username already exists: " + username);
-                return { success: false, error: "User with this username already exists: " + username }
-            }
-
-            const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code: emailVerificationCode } });
-            if(!existingEmailCode){
-                console.error("Email is not yet verified: " + email);
-                return { success: false, error: "Email is not yet verified: " + email }
-            }
-            
-            if(existingEmailCode.expireAt < new Date()){
-                console.error("Email verification code has expired for email: " + email + " at " + existingEmailCode.expireAt);
-                return { success: false, error: "Email verification code has expired for email: " + email + " at " + existingEmailCode.expireAt + ". Request a new verification code." }
-            }
-
-            const hashedPassword = User.hash(password);
-    
-            await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-                await transactionalEntityManager.save(UserEntity, {
-                    username,
-                    email,
-                    password: hashedPassword,
-                })
-                await transactionalEntityManager.remove(EmailVerificationCode, existingEmailCode);
+                password: hashedPassword,
             })
+            await transactionalEntityManager.remove(EmailVerificationCode, existingEmailCode);
+        })
 
-            const newUser: UserEntity | null = await userRepository.findOne({ where: { username, email } });
-            if(!newUser){
-                console.error("Failed to retrieve the newly created user with username: " + username + " and email: " + email);
-                return { success: false, error: "Failed to retrieve the newly created user with username: " + username + " and email: " + email }
-            }
-            return { newUser: newUser, success: true }
-
-        } catch (error) {
-            console.error("Error creating new user:", error);
-            return { success: false, error: "Error creating new user" }
+        const newUser: UserEntity | null = await userRepository.findOne({ where: { username, email } });
+        if(!newUser){
+            throw new UserNotFoundError("Failed to retrieve the newly created user with username: " + username + " and email: " + email)
         }
+        return { user: newUser }
     }
     
-    public static async getUser(jwt: string): Promise<{ user?: UserEntity, success: boolean, error?: string }> {
+    public static async getUser(jwt: string): Promise<{ user: UserEntity }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
-            console.error("Invalid JWT");
-            return { success: false, error: "Invalid JWT" }
+            throw new InvalidJWTError("Invalid JWT");
         }
-        try {
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
-            if(!existingUser){
-                console.error("User not found with id: " + userId);
-                return { success: false, error: "User not found with id: " + userId }
-            }
-            return { user: existingUser, success: true }
-        } catch (error) {
-            console.error("Error retrieving user:", error);
-            return { success: false, error: "Error retrieving user" }
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
         }
+        return { user: existingUser }
     }
 
-    public static async updateUsername(newUsername: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean, error?: string }> {
+    public static async updateUsername(newUsername: string, jwt: string): Promise<{ user: UserEntity }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
-            console.error("Invalid JWT");
-            return { success: false, error: "Invalid JWT" }
+            throw new InvalidJWTError("Invalid JWT");
         }
-        try {
-            if(!User.validateUsername(newUsername)){
-                console.error("could not validate username: " + newUsername);
-                return { success: false, error: "could not validate username: " + newUsername }
-            }
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
-            if(!existingUser){
-                console.error("User not found with id: " + userId);
-                return { success: false, error: "User not found with id: " + userId }
-            }
-            
-            if(existingUser.username === newUsername){
-                console.error("New username is the same as the current username");
-                return { success: false, error: "New username is the same as the current username" }
-            }
+        if(!User.validateUsername(newUsername)){
+            throw new InvalidUsernameError("could not validate username: " + newUsername);
+        }
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+        
+        if(existingUser.username === newUsername){
+            throw new InvalidUsernameError("New username is the same as the current username");
+        }
 
-            existingUser.username = newUsername;
-            await userRepository.save(existingUser);
-            return { newUser: existingUser, success: true }
-        }
-        catch (error) {
-            console.error("Error updating username:", error);
-            return { success: false, error: "Error updating username" }
-        }
+        existingUser.username = newUsername;
+        await userRepository.save(existingUser);
+        return { user: existingUser }
     }
 
-    public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ success: boolean, error?: string }> {
+    public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ user: UserEntity }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
-            console.error("Invalid JWT");
-            return { success: false, error: "Invalid JWT" }
+            throw new InvalidJWTError("Invalid JWT");
         }
-        try {
-            if(!User.validatePassword(newPassword)){
-                console.error("could not validate password: " + newPassword);
-                return { success: false, error: "could not validate password: " + newPassword }
-            }
+        if(!User.validatePassword(newPassword)){
+            throw new InvalidPasswordError("could not validate password: " + newPassword);
+        }
+        
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+
+        if(!User.validateHash(oldPassword, existingUser.password)){
+            throw new InvalidPasswordError("Old password is incorrect");
+        }
+        if(User.validateHash(newPassword, existingUser.password)){
+            throw new InvalidPasswordError("New password cannot be the same as the old password");
+        }
+        
+        const hashedPassword = User.hash(newPassword);
+        if(!hashedPassword){
+            throw new UserError("Failed to hash new password");
+        }
             
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
-
-            if(!existingUser){
-                console.error("User not found with id: " + userId);
-                return { success: false, error: "User not found with id: " + userId }
-            }
-
-            if(!User.validateHash(oldPassword, existingUser.password)){
-                console.error("Old password is incorrect");
-                return { success: false, error: "Old password is incorrect" }
-            }
-            if(User.validateHash(newPassword, existingUser.password)){
-                console.error("New password cannot be the same as the old password");
-                return { success: false, error: "New password cannot be the same as the old password" }
-            }
-            existingUser.password = User.hash(newPassword);
-            await userRepository.save(existingUser);
-            return { success: true }
-        } catch (error) {
-            console.error("Error updating password:", error);
-            return { success: false, error: "Error updating password" }
-        }
+        existingUser.password = hashedPassword;
+        await userRepository.save(existingUser);
+        return { user: existingUser }
     }
 
-    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode?: PasswordResetCode, success: boolean, error?: string }> {
-        try {
-            if(!User.validateEmail(email)){
-                console.error("Invalid email: " + email);
-                return { success: false, error: "Invalid email: " + email }
-            }
-            const existingUser = await userRepository.findOne({ where: { email } });
-            if(!existingUser){
-                console.error("User not found with email: " + email);
-                return { success: false, error: "User not found with email: " + email }
-            }
-            
-            const existingPasswordResetCode = await passwordResetCodeRepository.findOne({ where: { email } });
-            if(existingPasswordResetCode){
-                await passwordResetCodeRepository.remove(existingPasswordResetCode);
-            }
-
-            const passwordResetCode = await passwordResetCodeRepository.save({
-                code: User.generateRandomCode(),
-                email: email,
-                expireAt: User.expireAt()
-            });
-
-            if(!passwordResetCode){
-                console.error("Failed to create password reset code");
-                return { success: false, error: "Failed to create password reset code" }
-            }
-
-            return { passwordResetCode, success: true }
-        } catch (error) {
-            console.error("Error creating password reset code:", error);
-            return { success: false, error: "Error creating password reset code" }
+    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode: PasswordResetCode }> {
+        if(!User.validateEmail(email)){
+            throw new InvalidEmailError("Invalid email: " + email);
         }
+        const existingUser = await userRepository.findOne({ where: { email } });
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with email: " + email);
+        }
+        
+        const existingPasswordResetCode = await passwordResetCodeRepository.findOne({ where: { email } });
+        if(existingPasswordResetCode){
+            await passwordResetCodeRepository.remove(existingPasswordResetCode);
+        }
+
+        const passwordResetCode = await passwordResetCodeRepository.save({
+            code: User.generateRandomCode(),
+            email: email,
+            expireAt: User.expireAt()
+        });
+
+        if(!passwordResetCode){
+            throw new PasswordResetCodeNotFoundError("Failed to create password reset code");
+        }
+
+        return { passwordResetCode }
     }
 
-    public static async resetPassword(newPassword: string, code: string): Promise<{ success: boolean, error?: string }> {
-        try {
-            const passwordResetCode = await passwordResetCodeRepository.findOne({ where: { code } });
-            if(!passwordResetCode){
-                console.error("Password reset code not found: " + code);
-                return { success: false, error: "Password reset code not found: " + code }
-            }
-
-            if(passwordResetCode.expireAt < new Date()){
-                console.error("Password reset code has expired: " + code);
-                return { success: false, error: "Password reset code has expired: " + code  + ". Request a new password reset code." }
-            }
-            const user: UserEntity | null = await userRepository.findOne({ where: { email: passwordResetCode.email } });
-            if(!user){
-                console.error("User not found with email: " + passwordResetCode.email);
-                return { success: false, error: "User not found with email: " + passwordResetCode.email }
-            }
-            if(!User.validatePassword(newPassword)){
-                console.error("Invalid new password: " + newPassword);
-                return { success: false, error: "Invalid new password: " + newPassword }
-            }
-            user.password = User.hash(newPassword);
-
-            await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-                await transactionalEntityManager.save(user);
-                await transactionalEntityManager.remove(passwordResetCode);
-            })
-
-            return { success: true }
-        } catch (error) {
-            console.error("Error resetting password:", error);
-            return { success: false, error: "Error resetting password" }
+    public static async resetPassword(newPassword: string, code: string): Promise<{ user: UserEntity }> {
+        const passwordResetCode = await passwordResetCodeRepository.findOne({ where: { code } });
+        if(!passwordResetCode){
+            throw new PasswordResetCodeNotFoundError("Password reset code not found: " + code);
         }
+
+        if(passwordResetCode.expireAt < new Date()){
+            throw new InvalidPasswordResetCodeError("Password reset code has expired: " + code  + ". Request a new password reset code.");
+        }
+        const user: UserEntity | null = await userRepository.findOne({ where: { email: passwordResetCode.email } });
+        if(!user){
+            throw new UserNotFoundError("User not found with email: " + passwordResetCode.email);
+        }
+        if(!User.validatePassword(newPassword)){
+            throw new InvalidPasswordError("Invalid new password: " + newPassword);
+        }
+        const hashedPassword = User.hash(newPassword);
+        if(!hashedPassword){
+            throw new UserError("Failed to hash new password");
+        }
+        user.password = hashedPassword;
+
+        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
+            await transactionalEntityManager.save(user);
+            await transactionalEntityManager.remove(passwordResetCode);
+        })
+
+        return { user }
     }
     
-    public static async updateEmail(newEmail: string, emailVerificationCode: string, jwt: string): Promise<{ newUser?: UserEntity, success: boolean, error?: string }> {
+    public static async updateEmail(newEmail: string, emailVerificationCode: string, jwt: string): Promise<{ user: UserEntity }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
-            console.error("Invalid JWT");
-            return { success: false, error: "Invalid JWT" }
+            throw new InvalidJWTError("Invalid JWT");
         }
-        try {
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
-            if(!existingUser){
-                console.error("User not found with id: " + userId);
-                return { success: false, error: "User not found with id: " + userId }
-            }
-
-            const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email: newEmail, code: emailVerificationCode } });
-            if(!emailCode) {
-                console.error("Email verification code not found for email: " + newEmail);
-                return { success: false, error: "Email verification code not found for email: " + newEmail }
-            }
-            existingUser.email = newEmail;
-            await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-                await transactionalEntityManager.save(existingUser);
-                await transactionalEntityManager.remove(emailCode);
-            })
-
-            return { newUser: existingUser, success: true }
-        } catch (error) {
-            console.error("Error updating email:", error);
-            return { success: false, error: "Error updating email" }
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
         }
+
+        const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email: newEmail, code: emailVerificationCode } });
+        if(!emailCode) {
+            throw new EmailVerificationNotFoundError("Email verification code not found for email: " + newEmail);
+        }
+        existingUser.email = newEmail;
+        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
+            await transactionalEntityManager.save(existingUser);
+            await transactionalEntityManager.remove(emailCode);
+        })
+
+        return { user: existingUser }
     }
 
-    public static async deleteUser(jwt: string): Promise<{ deleted?: UserEntity, success: boolean, error?: string }> {
+    public static async deleteUser(jwt: string): Promise<{ user: UserEntity }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
-            console.error("Invalid JWT");
-            return { success: false, error: "Invalid JWT" }
+            throw new InvalidJWTError("Invalid JWT");
         }
-        try {
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
-            if(!existingUser){
-                console.error("User not found with id: " + userId);
-                return { success: false, error: "User not found with id: " + userId }
-            }
-            await userRepository.remove(existingUser);
-            return { deleted: existingUser, success: true }
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            return { success: false, error: "Error deleting user" }
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
         }
+        await userRepository.remove(existingUser);
+        return { user: existingUser }
     }
 
-    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt?: string, success: boolean, error?: string }> {
-        try {
-            const existingUser: UserEntity | null = await userRepository.findOne({ where: { username } });
-            if(!existingUser){
-                console.error("User does not exist with username: " + username);
-                return { success: false, error: "User does not exist with username: " + username };
-            }
-
-            if(!User.validateHash(password, existingUser.password)){
-                console.error("Invalid password");
-                return { success: false, error: "Invalid password" };
-            }
-            const jwt = User.jwtEncrypt(existingUser.id.toString());
-            if(!jwt){
-                return { success: false, error: "Error creating JWT" };
-            }
-            return { jwt, success: true };
-        } catch (error) {
-            console.error("Error creating user authentication:", error);
-            return { success: false, error: "Error creating user authentication" };
+    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string }> {
+        const existingUser: UserEntity | null = await userRepository.findOne({ where: { username } });
+        if(!existingUser){
+            throw new UserNotFoundError("User does not exist with username: " + username);
         }
+
+        if(!User.validateHash(password, existingUser.password)){
+            throw new InvalidPasswordError("Invalid password");
+        }
+        const jwt = User.jwtEncrypt(existingUser.id.toString());
+        if(!jwt){
+            throw new UserError("Error creating JWT");
+        }
+        return { jwt };
     }
 
     private static jwtEncrypt(token: string): string | null {
         try {
-        if(!JWT_SECRET_KEY){
-            console.error("JWT_SECRET_KEY is not defined");
-            return null;
-        }
+            if(!JWT_SECRET_KEY){
+                return null;
+            }
         return jwt.sign({ id: token }, JWT_SECRET_KEY, { expiresIn: "1h" });
         } catch (error) {
-            console.error("Error encrypting JWT:", error);
+            console.error(error);
             return null;
         }
     }
 
     private static jwtDecrypt(token: string): string | null {
-        try {
+        try{
             if(!JWT_SECRET_KEY){
-                console.error("JWT_SECRET_KEY is not defined");
                 return null;
             }
-        const decoded = jwt.verify(token, JWT_SECRET_KEY) as { id: string };
-        return decoded.id;
+            const decoded = jwt.verify(token, JWT_SECRET_KEY) as { id: string };
+            return decoded.id;
         } catch (error) {
-            console.error("Error decrypting JWT:", error);
+            console.error(error);
             return null;
         }
     }
 
-    private static hash(token: string):  string {
-        if(!SALT_ROUNDS){
-            console.error("SALT_ROUNDS is not defined");
-            return "";
+    private static hash(token: string):  string | null {
+        try {
+            if(!SALT_ROUNDS){
+                return null;
+            }
+            const salt = bcrypt.genSaltSync(Number(SALT_ROUNDS));
+            return bcrypt.hashSync(token, salt);
+        } catch (error) {
+            console.error(error);
+            return null;
         }
-        const salt = bcrypt.genSaltSync(Number(SALT_ROUNDS));
-        return bcrypt.hashSync(token, salt);
     }
 
     private static validateHash(token: string, hashed: string): boolean {
