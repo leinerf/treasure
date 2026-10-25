@@ -4,90 +4,94 @@ import emailVerificationRepository from './repository/emailVerificationRepositor
 import  dataSource from '../../infra/dataSource.js'
 import userRepository from './repository/userRepository.js';
 import passwordResetCodeRepository from './repository/passwordResetCodeRepository.js';
+import type { PasswordResetCode } from '../models/entity/passwordResetCode.js';
 import type { EmailVerificationCode } from '../models/entity/emailVerificationCode.js';
+import type {  User as UserEntity } from '../models/entity/user.js';
+import { InvalidEmailError } from '../errors/InvalidEmailError.js';
+import { EmailVerificationNotFoundError } from '../errors/EmailVerificationNotFound.js';
+import { InvalidEmailVerificationError } from '../errors/InvalidEmailVerification.js';
+import { InvalidUsernameError } from '../errors/InvalidUsernameError.js';
+import { UserExistsError } from '../errors/UserExistsError.js';
+import { UserNotFoundError } from '../errors/UserNotFoundError.js';
+import { InvalidJWTError } from '../errors/InvalidJWTError.js';
+import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
+import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
+import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
 
 describe('User Model Tests', () => {
   const email = 'test@example.com';
   const username = 'testuser123';
   const password = 'Password!123';
   
-  beforeAll(async () => {
-    await dataSource.initialize();
+  const cleanUpTestDB = async () => {
     await emailVerificationRepository.deleteAll();
     await passwordResetCodeRepository.deleteAll();
     await userRepository.deleteAll();
+  };
+  const checkUser = (user: UserEntity, expectedUsername: string, expectedEmail: string) => {
+    expect(user).toBeDefined();
+    expect(user).toHaveProperty('username', expectedUsername);
+    expect(user).toHaveProperty('email', expectedEmail);
+    expect(user).toHaveProperty('id', expect.any(String));
+  };
+
+  const checkEmailCode = (emailCode: EmailVerificationCode, expectedEmail: string) => {
+    expect(emailCode).toBeDefined();
+    expect(emailCode).toHaveProperty('email', expectedEmail);
+    expect(emailCode).toHaveProperty('code', expect.any(String));
+    expect(emailCode).toHaveProperty('expireAt', expect.any(Date));
+  };
+
+  const checkPasswordResetCode = (passwordResetCode: PasswordResetCode, expectedEmail: string) => {
+    expect(passwordResetCode).toBeDefined();
+    expect(passwordResetCode).toHaveProperty('email', expectedEmail);
+    expect(passwordResetCode).toHaveProperty('code', expect.any(String));
+    expect(passwordResetCode).toHaveProperty('expireAt', expect.any(Date));
+  };
+
+  beforeAll(async () => {
+    await dataSource.initialize();
+    await cleanUpTestDB();
   });
 
   afterAll(async () => {
-    await emailVerificationRepository.deleteAll();
-    await passwordResetCodeRepository.deleteAll();
-    await userRepository.deleteAll();
+    await cleanUpTestDB();
     await dataSource.destroy();
   });
 
   describe('User Email Verification Tests', () => {
-    beforeAll(async () => {
-      const existingEmailVerification = await emailVerificationRepository.findOne({where: { email }});
-      if(existingEmailVerification) {
-        await emailVerificationRepository.remove(existingEmailVerification);
-      }
+    beforeEach(async () => {
+      await cleanUpTestDB();
     });
-    afterAll(async () => {
-      const existingEmailVerification = await emailVerificationRepository.findOne({where: { email }});
-      if(existingEmailVerification) {
-        await emailVerificationRepository.remove(existingEmailVerification);
-      }
+    afterEach(async () => {
+      await cleanUpTestDB();
     });
     test('create email verification code', async () => {
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(emailCode).toHaveProperty('email', email);
-      expect(emailCode).toHaveProperty('code', expect.any(String));
-      expect(emailCode).toHaveProperty('expireAt', expect.any(Date));
-      expect(success).toBe(true);
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
     });
     test('Create new email verification code for existing email', async () => {
-      const { emailCode: firstEmailCode, success: firstSuccess } = await User.createEmailVerificationCode(email);
-      expect(firstEmailCode).toBeDefined();
-      expect(firstSuccess).toBe(true);
+      const { emailCode: firstEmailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(firstEmailCode, email);
 
-      const { emailCode: secondEmailCode, success: secondSuccess } = await User.createEmailVerificationCode(email);
-      expect(secondEmailCode).toBeDefined();
-      expect(secondSuccess).toBe(true);
+      const { emailCode: secondEmailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(secondEmailCode, email);
 
-      expect(secondEmailCode?.code).not.toBe(firstEmailCode?.code);
-
-      if(firstEmailCode) {
-        await emailVerificationRepository.remove(firstEmailCode);
-      }
-      if(secondEmailCode) {
-        await emailVerificationRepository.remove(secondEmailCode);
-      }
+      expect(secondEmailCode.code).not.toBe(firstEmailCode.code);
     });
     test('Fail to create new email for invalid email', async () => {
       const invalidEmail = 'invalidemail';
-      const { emailCode, success } = await User.createEmailVerificationCode(invalidEmail);
-      expect(emailCode).toBeUndefined();
-      expect(success).toBe(false);
+      await expect(User.createEmailVerificationCode(invalidEmail)).rejects.toThrow(InvalidEmailError);
     });
-
-  })
+  });
 
   describe('Create New User Tests', () => {
     let emailCode: EmailVerificationCode | null = null;
     beforeEach(async () => {
       // Clean up any existing users and email verification codes before each test
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
-      const { emailCode: newEmailCode, success: newEmailCodeSuccess } = await User.createEmailVerificationCode(email);
-      expect(newEmailCodeSuccess).toBe(true);
-      expect(newEmailCode).toBeDefined();
-      expect(newEmailCode).toHaveProperty('email', email);
-      expect(newEmailCode).toHaveProperty('code', expect.any(String));
-      expect(newEmailCode).toHaveProperty('expireAt', expect.any(Date));
+      await cleanUpTestDB();
+      const { emailCode: newEmailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(newEmailCode, email);
       if(!newEmailCode?.code) {
         throw new Error('Email verification code not created in beforeEach');
       }
@@ -95,25 +99,18 @@ describe('User Model Tests', () => {
     });
     afterEach(async () => {
       // Clean up any existing users and email verification codes after each test
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Create new user', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not available for creating new user');
       }
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUser).toHaveProperty('username', username);
-      expect(newUser).toHaveProperty('email', email);
-      expect(newUser).toHaveProperty('password', expect.any(String));
-      expect(newUserSuccess).toBe(true);
+      const { user } = await User.createNewUser(username, email, emailCode.code, password);
+      checkUser(user, username, email);
     });
     test('Fail to create new user with invalid email verification code', async () => {
       const invalidCode = 'invalid-code';
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, invalidCode, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
+      await expect(User.createNewUser(username, email, invalidCode, password)).rejects.toThrow(EmailVerificationNotFoundError);
     });
     test('Fail to create new user with expired email verification code', async () => {
       if(!emailCode?.code) {
@@ -123,684 +120,392 @@ describe('User Model Tests', () => {
       // Manually expire the email verification code
       emailCode.expireAt = new Date(Date.now() - 1000);
       await emailVerificationRepository.save(emailCode);
-      
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
+      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(InvalidEmailVerificationError);
     });
     test('Fail to create new user with duplicate email', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not available for creating new user');
       }
       
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
+      const { user } = await User.createNewUser(username, email, emailCode.code, password);
+      checkUser(user, username, email);
 
-      const { newUser: duplicateUser, success: duplicateUserSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(duplicateUser).toBeUndefined();
-      expect(duplicateUserSuccess).toBe(false);
+      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(UserExistsError);
     });
     test('Fail to create new user with short username', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser, success: newUserSuccess } = await User.createNewUser('a', email, emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      await expect(User.createNewUser('a', email, emailCode?.code, password)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to create new user with numbers only username', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser, success: newUserSuccess } = await User.createNewUser('123456', email, emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      await expect(User.createNewUser('123456', email, emailCode?.code, password)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to create new user with long username', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser, success: newUserSuccess } = await User.createNewUser('a'.repeat(256), email, emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      await expect(User.createNewUser('a'.repeat(256), email, emailCode?.code, password)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to create new user with empty username', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser, success: newUserSuccess } = await User.createNewUser('', email, emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      await expect(User.createNewUser('', email, emailCode?.code, password)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to create new user with existing username', async () => {
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
       
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
+      const { user } = await User.createNewUser(username, email, emailCode?.code, password);
+      checkUser(user, username, email);
       
-      const { emailCode:newEmailCode, success: newEmailCodeSuccess } = await User.createEmailVerificationCode("secondEmail@example.com");
-      expect(newEmailCode).toBeDefined();
-      expect(newEmailCodeSuccess).toBe(true);
+      const { emailCode:newEmailCode } = await User.createEmailVerificationCode("secondEmail@example.com");
+      checkEmailCode(newEmailCode, "secondEmail@example.com");
 
       if(!newEmailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser:duplicateUser, success: duplicateUserSuccess } = await User.createNewUser(username, newEmailCode.email, newEmailCode.code, password);
-      expect(duplicateUser).toBeUndefined();
-      expect(duplicateUserSuccess).toBe(false);
-
-      if(newEmailCode) {
-        await emailVerificationRepository.remove(newEmailCode);
-      }
+      await expect(User.createNewUser(username, newEmailCode.email, newEmailCode.code, password)).rejects.toThrow(UserExistsError);
     });
     test('Fail to create new user with invalid email', async () => {
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(success).toBe(true);
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
 
       if(!emailCode?.code) {
         throw new Error('Email verification code not created');
       }
 
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, 'invalidEmail', emailCode?.code, password);
-      expect(newUser).toBeUndefined();
-      expect(newUserSuccess).toBe(false);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
+      await expect(User.createNewUser(username, 'invalidEmail', emailCode?.code, password)).rejects.toThrow(InvalidEmailError);
     });
   });
-
   describe('Get User Authentication', () => {
+    beforeEach(async () => {
+      // Clean up any existing users and email verification codes before each test
+      await cleanUpTestDB();
+      const { emailCode: newEmailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(newEmailCode, email);
+      const { user } = await User.createNewUser(username, email, newEmailCode.code, password);
+      checkUser(user, username, email);
+    });
+    afterEach(async () => {
+      // Clean up any existing users and email verification codes after each test
+      await cleanUpTestDB();
+    });
     test('Successfully get user with valid JWT', async () => {
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(success).toBe(true);
-
-      if(!emailCode?.code) {
-        throw new Error('Email verification code not created');
-      }
-
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
-
-      if(!newUser) {
-        throw new Error('New user not created');
-      }
-
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
       if(!jwt) {
         throw new Error('JWT not created');
       }
 
-      const { user, success: getUserSuccess } = await User.getUser(jwt);
-      expect(user).toBeDefined();
-      expect(getUserSuccess).toBe(true);
-      expect(user?.id).toBe(newUser.id);
-
-      if(emailCode) {
-        await emailVerificationRepository.remove(emailCode);
-      }
-      if(newUser) {
-        await userRepository.remove(newUser);
-      }
+      const { user } = await User.getUser(jwt);
+      checkUser(user, username, email);
     });
     test('Fail to get jwt with invalid username and password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication('invalidUsername', 'invalidPassword');
-      expect(jwt).toBeUndefined();
-      expect(authSuccess).toBe(false);
+      await expect(User.createUserAuthentication('invalidUsername', 'invalidPassword')).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to get user with invalid JWT', async () => {
-      const { user, success: getUserSuccess } = await User.getUser('invalidJWT');
-      expect(user).toBeUndefined();
-      expect(getUserSuccess).toBe(false);
+      await expect(User.getUser('invalidJWT')).rejects.toThrow(InvalidJWTError);
+      
     });
   });
   describe('Update Username', () => {
     beforeEach(async () => {
       // Clean up any existing test data before each test
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(success).toBe(true);
-      if(!emailCode?.code) {
-        throw new Error('Email verification code not created');
-      }
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
-      if(!newUser) {
-        throw new Error('New user not created');
-      }
+      await cleanUpTestDB();
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
+      const { user } = await User.createNewUser(username, email, emailCode?.code, password);
+      checkUser(user, username, email);
     });
     afterEach(async () => {
       // Clean up any test data after each test in this describe block
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Update username successfully', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
       const newUsername = 'updatedUsername';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeDefined();
-      expect(updateSuccess).toBe(true);
-      if(!newUser) {
-        throw new Error('Username not updated');
-      }
-      expect(newUser.username).toBe(newUsername);
+      const { user } = await User.updateUsername(newUsername, jwt);
+      checkUser(user, newUsername, email);
     });
     test('Fail to update username with invalid JWT', async () => {
       const newUsername = 'updatedUsername';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, 'invalidJWT');
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, 'invalidJWT')).rejects.toThrow(InvalidJWTError);
     });
     test('Fail to update username with empty JWT', async () => {
       const newUsername = 'updatedUsername';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, '');
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, '')).rejects.toThrow(InvalidJWTError);
     });
     test('Fail to update username with missing JWT', async () => {
       const newUsername = 'updatedUsername';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, undefined as any);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, undefined as any)).rejects.toThrow(InvalidJWTError);
     });
     test('Fail to update username with empty new username', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       const newUsername = '';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with missing new username', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       const newUsername = undefined as any;
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with invalid new username', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       const newUsername = '123invalid@username';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with too short new username', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       const newUsername = 'ab';
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with too long new username', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       const newUsername = 'a'.repeat(51); // Assuming max length is 50
-      const { newUser, success: updateSuccess } = await User.updateUsername(newUsername, jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
     });
   });
   describe('Update Email', () => {
     // Add tests for updating email here
     beforeEach(async () => {
       // Clean up any existing test data before each test
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(success).toBe(true);
-      if(!emailCode?.code) {
-        throw new Error('Email verification code not created');
-      }
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
-      if(!newUser) {
-        throw new Error('New user not created');
-      }
+      await cleanUpTestDB();
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
+      const { user } = await User.createNewUser(username, email, emailCode?.code, password);
+      checkUser(user, username, email)
     });
     afterEach(async () => {
       // Clean up any test data after each test in this describe block
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Successfully update email with valid new email', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       
       const newEmail = 'newemail@example.com';
-      const {emailCode, success: emailCodeSuccess } = await User.createEmailVerificationCode(newEmail);
-      expect(emailCode).toBeDefined();
-      expect(emailCodeSuccess).toBe(true);
-      if(!emailCode?.code) {
-        throw new Error('Email verification code not created');
-      } 
-      const { newUser, success: updateSuccess } = await User.updateEmail(newEmail, emailCode.code, jwt);
-      expect(newUser).toBeDefined();
-      expect(updateSuccess).toBe(true);
+      const { emailCode } = await User.createEmailVerificationCode(newEmail);
+      checkEmailCode(emailCode, newEmail);
+      const { user } = await User.updateEmail(newEmail, emailCode.code, jwt);
+      checkUser(user, username, newEmail);
+      
     });
     test('Fail to update email with no email verification code', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
-      
+
       const newEmail = 'newemail@example.com';
-      const { newUser, success: updateSuccess } = await User.updateEmail(newEmail, '', jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateEmail(newEmail, '', jwt)).rejects.toThrow(EmailVerificationNotFoundError);
     });
     test('Fail to update email with invalid email verification code', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
       
       const newEmail = 'newemail@example.com';
-      const { newUser, success: updateSuccess } = await User.updateEmail(newEmail, 'invalidcode', jwt);
-      expect(newUser).toBeUndefined();
-      expect(updateSuccess).toBe(false);
+      await expect(User.updateEmail(newEmail, 'invalidcode', jwt)).rejects.toThrow(EmailVerificationNotFoundError);
     });
   });
   describe('Update Password', () => {
     beforeEach(async () => {
-      const { emailCode, success: emailCodeSuccess } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(emailCodeSuccess).toBe(true);
-      if(!emailCode?.code) {
-        throw new Error('Email verification code not created');
-      }
-      const { newUser, success: newUserSuccess } = await User.createNewUser(username, email, emailCode?.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUserSuccess).toBe(true);
-      if(!newUser) {
-        throw new Error('New user not created');
-      }
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
+      const { user } = await User.createNewUser(username, email, emailCode?.code, password);
+      checkUser(user, username, email);
     });
     afterEach(async () => {
       await emailVerificationRepository.deleteAll();
       await userRepository.deleteAll();
     });
+    // TODO: Figure out why update password has high latency 300ms
     test('Successfully update password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
-
       const newPassword = 'newPassword!123';
-      const { success: updateSuccess } = await User.updatePassword(password, newPassword, jwt);
-      expect(updateSuccess).toBe(true);
+      const { user } = await User.updatePassword(password, newPassword, jwt);
+      checkUser(user, username, email);
+      const { jwt: newJwt } = await User.createUserAuthentication(username, newPassword);
+      expect(newJwt).toBeDefined();
+      const { user: newUser } = await User.getUser(newJwt);
+      checkUser(newUser, username, email);
     });
     test('Fail to update password with incorrect current password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
       const newPassword = 'newPassword!123';
-      const { success: updateSuccess } = await User.updatePassword('wrongPassword', newPassword, jwt);
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword('wrongPassword', newPassword, jwt)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with missing JWT', async () => {
       const newPassword = 'newPassword!123';
-      const { success: updateSuccess } = await User.updatePassword(password, newPassword, '');
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword(password, newPassword, '')).rejects.toThrow(InvalidJWTError);
     });
     test('Fail to update password with missing current password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
       const newPassword = 'newPassword!123';
-      const { success: updateSuccess } = await User.updatePassword('', newPassword, jwt);
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword('', newPassword, jwt)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with missing new password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
-      const { success: updateSuccess } = await User.updatePassword(password, '', jwt);
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword(password, '', jwt)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with incorrect JWT', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
       const newPassword = 'newPassword!123';
-      const { success: updateSuccess } = await User.updatePassword(password, newPassword, 'invalidJWT');
-      expect(updateSuccess).toBe(false);
-    });
-    test('Fail to update password with expired JWT', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
-
-      const newPassword = 'newPassword!123';
-      const expiredJWT = 'expiredJWT'; // Replace with actual expired JWT if available
-      const { success: updateSuccess } = await User.updatePassword(password, newPassword, expiredJWT);
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword(password, newPassword, 'invalidJWT')).rejects.toThrow(InvalidJWTError);
     });
     test('Fail to update password with same as current password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
-      const { success: updateSuccess } = await User.updatePassword(password, password, jwt);
-      expect(updateSuccess).toBe(false);
+      await expect(User.updatePassword(password, password, jwt)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with invalid new password', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
 
-      const invalidNewPassword = '123password';
-      const { success: updateSuccess } = await User.updatePassword(password, invalidNewPassword, jwt);
-      expect(updateSuccess).toBe(false);
+      const invalidNewPassword = 'password';
+      await expect(User.updatePassword(password, invalidNewPassword, jwt)).rejects.toThrow(InvalidPasswordError);
     });
   });
   describe('Create Password Reset Code', () => {
     beforeEach(async () => {
       // Any setup needed before each test in this describe block
-      await passwordResetCodeRepository.deleteAll();
-      await userRepository.deleteAll();
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(success).toBe(true);
-      expect(emailCode).toBeDefined();
-      if(!emailCode?.code){
-        throw new Error('Email code not created');
-      }
-      const { newUser, success: userSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(userSuccess).toBe(true);
-      expect(newUser).toBeDefined();
-      if(!newUser?.id){
-        throw new Error('User not created');
-      }
+      await cleanUpTestDB()
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      await checkEmailCode(emailCode, email);
+      const { user } = await User.createNewUser(username, email, emailCode.code, password);
+      await checkUser(user, username, email);
     });
     afterEach(async () => {
       // Any cleanup needed after each test in this describe block
-      await passwordResetCodeRepository.deleteAll();
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Successfully create password reset code', async () => {
-      const { passwordResetCode, success, error } = await User.createPasswordResetCode(email);
-      expect(success).toBe(true);
-      expect(passwordResetCode).toBeDefined();
-      expect(error).toBeUndefined();
-      if(!passwordResetCode?.code){
-        throw new Error('Password reset code not created');
-      }
-      const foundCode = await passwordResetCodeRepository.findOne({where: { code: passwordResetCode.code }});
-      expect(foundCode).toBeDefined();
-      expect(foundCode?.code).toBe(passwordResetCode.code);
-      expect(foundCode?.email).toBe(email);
+      const { passwordResetCode } = await User.createPasswordResetCode(email);
+      checkPasswordResetCode(passwordResetCode, email);
     });
     test('Fail to create password reset code with invalid email', async () => {
-      const { success } = await User.createPasswordResetCode('invalidEmail');
-      expect(success).toBe(false);
+      await expect(User.createPasswordResetCode('invalidEmail')).rejects.toThrow(InvalidEmailError);
     });
     test('Fail to create password reset code for non-existent user email', async () => {
-      const { success } = await User.createPasswordResetCode('invalid@example.com');
-      expect(success).toBe(false);
+      await expect(User.createPasswordResetCode('invalid@example.com')).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to create password reset code with empty email', async () => {
-      const { success } = await User.createPasswordResetCode('');
-      expect(success).toBe(false);
+      await expect(User.createPasswordResetCode('')).rejects.toThrow(InvalidEmailError);
     });
     test('Fail to create password reset code with whitespace email', async () => {
-      const { success } = await User.createPasswordResetCode('   ');
-      expect(success).toBe(false);
+      await expect(User.createPasswordResetCode('   ')).rejects.toThrow(InvalidEmailError);
     });
   });
   describe('Reset Password', () => {
+    let passwordResetCode: PasswordResetCode;
     beforeEach(async () => {
-      await passwordResetCodeRepository.deleteAll();
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
-      const { emailCode, success } = await User.createEmailVerificationCode(email);
-      expect(success).toBe(true);
-      expect(emailCode).toBeDefined();
-      if(!emailCode?.code){
-        throw new Error('Email code not created');
-      }
-      const { newUser, success: userSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(userSuccess).toBe(true);
-      expect(newUser).toBeDefined();
-      if(!newUser?.id){
-        throw new Error('User not created');
-      }
+      await cleanUpTestDB();
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      checkEmailCode(emailCode, email);
+      const { user: newUser } = await User.createNewUser(username, email, emailCode.code, password);
+      checkUser(newUser, username, email);
+      const { passwordResetCode: prc } = await User.createPasswordResetCode(email);
+      checkPasswordResetCode(prc, email);
+      passwordResetCode = prc;
     });
     afterEach(async () => {
-      await passwordResetCodeRepository.deleteAll();
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Successfully reset password with valid code', async () => {
-      const { passwordResetCode } = await User.createPasswordResetCode(email);
-      if(!passwordResetCode?.code){
-        throw new Error('Password reset code not created');
-      }
-      const { success } = await User.resetPassword('newPassword!123', passwordResetCode.code);
-      expect(success).toBe(true);
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, 'newPassword!123');
-      expect(authSuccess).toBe(true);
+      const { user } = await User.resetPassword('newPassword!123', passwordResetCode.code);
+      checkUser(user, username, email);
+      const { jwt } = await User.createUserAuthentication(username, 'newPassword!123');
       expect(jwt).toBeDefined();
-      if(!jwt){
-        throw new Error('JWT not created');
-      }
-      const { user } = await User.getUser(jwt);
-      expect(user).toBeDefined();
-      expect(user?.email).toBe(email);
-      expect(user?.username).toBe(username);
+
+      const { user: fetchedUser } = await User.getUser(jwt);
+      checkUser(fetchedUser, username, email);
     });
     test('Fail to reset password with invalid code', async () => {
-      const { success } = await User.resetPassword('newPassword!123', 'invalidCode');
-      expect(success).toBe(false);
+      await expect(User.resetPassword('newPassword!123', 'invalidCode')).rejects.toThrow(PasswordResetCodeNotFoundError);
     });
     test('Fail to reset password with empty code', async () => {
-      const { success } = await User.resetPassword('newPassword!123', '');
-      expect(success).toBe(false);
+      await expect(User.resetPassword('newPassword!123', '')).rejects.toThrow(PasswordResetCodeNotFoundError);
     });
     test('Fail to reset password with whitespace code', async () => {
-      const { success } = await User.resetPassword('newPassword!123', '   ');
-      expect(success).toBe(false);
+      await expect(User.resetPassword('newPassword!123', '   ')).rejects.toThrow(PasswordResetCodeNotFoundError);
     });
     test('Fail to reset password with expired code', async () => {
-      const { passwordResetCode } = await User.createPasswordResetCode(email);
-      if(!passwordResetCode?.code){
-        throw new Error('Password reset code not created');
-      }
       // Simulate code expiration
       passwordResetCode.expireAt = new Date(Date.now() - 1000); // Set expiration to 1 second in the past
       await passwordResetCodeRepository.save(passwordResetCode);
-
-      const { success } = await User.resetPassword('newPassword!123', passwordResetCode.code);
-      expect(success).toBe(false);
+      await expect(User.resetPassword('newPassword!123', passwordResetCode.code)).rejects.toThrow(InvalidPasswordResetCodeError);
     });
     test('Fail to reset password with invalid email', async () => {
-      const { success } = await User.createPasswordResetCode('invalidEmail');
-      expect(success).toBe(false);
+      await expect(User.createPasswordResetCode('invalidEmail')).rejects.toThrow(InvalidEmailError);
+    });
+    test('Fail to reset password with non-existent email', async () => {
+      await expect(User.createPasswordResetCode('nonexistent@example.com')).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to reset password with invalid new password', async () => {
-      const { passwordResetCode } = await User.createPasswordResetCode(email);
-      if(!passwordResetCode?.code){
-        throw new Error('Password reset code not created');
-      }
-      const { success } = await User.resetPassword('password', passwordResetCode.code);
-      expect(success).toBe(false);
+      await expect(User.resetPassword('password', passwordResetCode.code)).rejects.toThrow(InvalidPasswordError);
     });
   });
   describe('Delete User', () => {
     beforeEach(async () => {
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
       
       const { emailCode } = await User.createEmailVerificationCode(email);
-      expect(emailCode).toBeDefined();
-      expect(emailCode?.code).toBeDefined();
-      expect(emailCode?.email).toBe(email);
-      expect(emailCode?.expireAt).toBeDefined();
+      checkEmailCode(emailCode, email);
 
-      if(!emailCode?.code){
-        throw new Error('Email verification code not created');
-      }
-      const { newUser, success: createSuccess } = await User.createNewUser(username, email, emailCode.code, password);
-      expect(newUser).toBeDefined();
-      expect(newUser?.id).toBeDefined();
-      expect(newUser?.username).toBe(username);
-      expect(newUser?.email).toBe(email);
-      expect(newUser?.password).toBeDefined();
-      expect(createSuccess).toBe(true);
+      const { user } = await User.createNewUser(username, email, emailCode.code, password);
+      checkUser(user, username, email);
     });
     afterEach(async () => {
-      await userRepository.deleteAll();
-      await emailVerificationRepository.deleteAll();
+      await cleanUpTestDB();
     });
     test('Delete user successfully', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      expect(authSuccess).toBe(true);
-      if(!jwt){
-        throw new Error('JWT not created');
-      }
-      const { success } = await User.deleteUser(jwt);
-      expect(success).toBe(true);
-      const { user } = await User.getUser(jwt);
-      expect(user).toBeUndefined();
+      await User.deleteUser(jwt);
+      await expect(User.getUser(jwt)).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to delete user with invalid JWT', async () => {
-      const { success } = await User.deleteUser('invalidJWT');
-      expect(success).toBe(false);
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);  
-      expect(authSuccess).toBe(true);
+      await expect(User.deleteUser('invalidJWT')).rejects.toThrow(InvalidJWTError);
+      const { jwt } = await User.createUserAuthentication(username, password);  
       expect(jwt).toBeDefined();
-      if(!jwt){
-        throw new Error('JWT not created');
-      }
+
       const { user } = await User.getUser(jwt);
-      expect(user).toBeDefined();
-    });
-    test('Fail to delete user with valid JWT but non-existent user', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
-      expect(authSuccess).toBe(true);
-      expect(jwt).toBeDefined();
-      if(!jwt){
-        throw new Error('JWT not created');
-      }
-      await User.deleteUser(jwt);
-      const { success } = await User.deleteUser(jwt);
-      expect(success).toBe(false);
+      checkUser(user, username, email);
     });
     test('Fail to delete user with valid JWT but already deleted user', async () => {
-      const { jwt, success: authSuccess } = await User.createUserAuthentication(username, password);
-      expect(authSuccess).toBe(true);
+      const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
-      if(!jwt){
-        throw new Error('JWT not created');
-      }
+      
       await User.deleteUser(jwt);
-      const { success } = await User.deleteUser(jwt);
-      expect(success).toBe(false);
+      await expect(User.deleteUser(jwt)).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to delete user with empty JWT', async () => {
-      const { success } = await User.deleteUser('');
-      expect(success).toBe(false);
+      await expect(User.deleteUser('')).rejects.toThrow(InvalidJWTError);
     });
   });
 });
