@@ -1,8 +1,8 @@
 import { EntryNotFoundError } from "./EntryNotFound.js";
 
 export class EmailVerificationNotFoundError extends EntryNotFoundError {
-    constructor(message: string) {
-        super(message);
+    constructor(email: string) {
+        super(`Email verification not found for email: ${email}`);
         this.name = "EmailVerificationNotFoundError";
     }
 }

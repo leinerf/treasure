@@ -3,9 +3,8 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 
 import dataSource from "../../infra/dataSource.js";
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import { auth as authMiddleware } from "../middleware/auth.js";
+import authRoutes from "./resources/auth/resource.js";
+import userRoutes from "./resources/user/resource.js";
 
 try {
     await dataSource.initialize();
@@ -26,8 +25,8 @@ app.get("/api/test", (req, res) => {
     console.log(req.cookies.jwt)
     res.status(200).json({ message: "API is working" });
 });
-app.use("/api/auth", authRoutes);
-app.use("/api/user", authMiddleware, userRoutes);
+app.use("/api", authRoutes);
+app.use("/api", userRoutes);
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

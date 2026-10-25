@@ -66,7 +66,7 @@ class User {
 
         const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code: emailVerificationCode } });
         if(!existingEmailCode){
-            throw new EmailVerificationNotFoundError("Email is not yet verified: " + email);
+            throw new EmailVerificationNotFoundError(email);
         }
         
         if(existingEmailCode.expireAt < new Date()){
@@ -228,7 +228,7 @@ class User {
 
         const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email: newEmail, code: emailVerificationCode } });
         if(!emailCode) {
-            throw new EmailVerificationNotFoundError("Email verification code not found for email: " + newEmail);
+            throw new EmailVerificationNotFoundError(newEmail);
         }
         existingUser.email = newEmail;
         await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
