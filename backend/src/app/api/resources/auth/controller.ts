@@ -40,7 +40,7 @@ class AuthController {
         if(!emailSent){
             return res.status(500).json({ message: "Failed to send password reset email" });
         }
-        return res.status(200).json({ message: "Password reset code created successfully", passwordResetCode });
+        return res.status(200).json({ message: "Password reset code created successfully" });
     }
 
     public static async resetPassword(req: Request, res: Response): Promise<Response> {

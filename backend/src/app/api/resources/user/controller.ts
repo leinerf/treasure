@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";  
 import User from "../../../../domain/models/user.js";
 import type { User as UserEntity } from "../../../../domain/models/entity/user.js";
+
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;

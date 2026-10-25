@@ -19,7 +19,7 @@ const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => 
 };
 
 const createRoutes = (router: Router, resource: { resourcePath: string; routes: { path: string; method: string; controller: (req: Request, res: Response, next: NextFunction) => Promise<Response>; middlewares?: ((req: Request, res: Response, next: NextFunction) => void)[] }[] }) => {
-    const routes = resource.routes 
+    const routes = resource.routes
     routes.forEach(route => {
         const fullPath = `${resource.resourcePath}${route.path}`;
         const handler = errorWrapper(route.controller);
