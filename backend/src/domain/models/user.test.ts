@@ -469,6 +469,9 @@ describe('User Model Tests', () => {
     test('Fail to reset password with invalid new password', async () => {
       await expect(User.resetPassword('password', passwordResetCode.code)).rejects.toThrow(InvalidPasswordError);
     });
+    test('Fail to reset password with same as old password', async () => {
+      await expect(User.resetPassword(password, passwordResetCode.code)).rejects.toThrow(InvalidPasswordError);
+    });
   });
   describe('Delete User', () => {
     beforeEach(async () => {

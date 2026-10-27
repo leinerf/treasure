@@ -1,10 +1,30 @@
 import { useState } from "react";
 import UpdateUserForm from "../components/Forms/UpdateUserForm";
 import AccountInfo from "../components/AccountInfo";
-
+import ErrorMessage from "../components/ErrorMessage";
+import SuccessMessage from "../components/SuccessMessage";
 function Profile() {
     const options = ["Account Info", "Edit Account"];
     const [tab, setTab] = useState(0);
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const handleSuccess = (message?: string) => {
+        setError(null);
+        setSuccessMessage(message ?? "Update successful");
+        setTab(0);
+    }
+
+    const handleFailure = (error?: string) => {
+        setError(error ?? "An unknown error occurred");
+        setSuccessMessage(null);
+    }
+
+    const switchTabs = (index: number) => {
+        setTab(index);
+        setError(null);
+        setSuccessMessage(null);
+    }
+
     return (
         <div className="flex flex-col items-center justify-center w-full">
             <h1 className="text-2xl font-bold mb-4">Profile Page</h1>
@@ -13,17 +33,23 @@ function Profile() {
                     <span 
                         key={index} 
                         className={`cursor-pointer hover:underline ${tab === index ? "font-bold" : ""}`}
-                        onClick={() => setTab(index)}
+                        onClick={() => switchTabs(index)}
                     >
                         {option}
                     </span>
                 ))}
             </div>
             {tab === 0 && (
-                <AccountInfo />
+                <>
+                    <SuccessMessage message={successMessage} />
+                    <AccountInfo />
+                </>
             )}
             {tab === 1 && (
-                <UpdateUserForm />
+                <>
+                    <ErrorMessage message={error} />
+                    <UpdateUserForm onSuccess={handleSuccess} onFailure={handleFailure} />
+                </>
             )}
         </div>
     );

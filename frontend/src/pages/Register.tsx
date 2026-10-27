@@ -13,6 +13,7 @@ function Register() {
     const handleEmailVerificationSuccess = () => {
         setShowEmailForm(false);
         setShowUserForm(true);
+        setError(null);
     }
     
     const handleOnFailure = (error?: string) => {

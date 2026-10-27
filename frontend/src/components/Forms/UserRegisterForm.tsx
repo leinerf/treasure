@@ -5,7 +5,7 @@ import EmailInput from "./Inputs/EmailInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import VerificationCodeInput from "./Inputs/VerificationCodeInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCalls from "../../api/internalAPI/apiCalls";
+import { InternalAPI } from "../../api/internalAPI/InternalAPI";
 
 // Call onSuccess during successful submission
 // Call onFailure during failed submission
@@ -55,7 +55,7 @@ const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: (message?: string
                 return;
             }
             // All inputs are valid, proceed with form submission logic here
-            const { message, status, error } = await apiCalls.register({
+            const { message, status, error } = await InternalAPI.register({
                 username,
                 email,
                 password,

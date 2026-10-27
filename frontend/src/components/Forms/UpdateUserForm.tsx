@@ -7,8 +7,9 @@ import TextInput from "./Inputs/TextInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
 import FileInput from "./Inputs/ProfileInput";
+import { InternalAPI } from "../../api/internalAPI/InternalAPI";
 
-function UpdateUserForm() {
+function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void }) {
     const { user, authenticate } = useContext(UserAuthContext);
     const [email, setEmail] = useState(user.email);
     const [isEmailValid, setIsEmailValid] = useState(true);
@@ -32,22 +33,27 @@ function UpdateUserForm() {
     };
 
     const updateEmailSubmitHandler = {
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
             if (!regexInputConfig.email.regex.test(email)) {
                 setIsEmailValid(false);
                 // Handle invalid email format
                 return;
             }
-            authenticate({ username: user.username, email, profileImg: user.profileImg });
+            
             // Show the verification input after submitting the email update
-            setShowVerificationInput(true);
+            const { status, error } = await InternalAPI.createEmailVerification(email);
+            if (status === 200) {
+                setShowVerificationInput(true);
+            } else {
+                if(onFailure) onFailure(error || "Failed to send verification email");
+            }
         },
         buttonText: "Update Email"
     }
 
     const verifyEmailSubmitHandler = {
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
             // Handle verification code submission
             if(code.length !== 6) {
@@ -55,26 +61,40 @@ function UpdateUserForm() {
                 // Handle invalid verification code length
                 return;
             }
+            const { data, message, status, error } = await InternalAPI.updateEmail(email, code);
+            if (data && data.email === email && status === 200) {
+                authenticate({ username: data.username, email, profileImg: null });
+                if(onSuccess) onSuccess(message);
+            } else {
+                if(onFailure) onFailure(error || "Failed to update email");
+            }
         },
         buttonText: "Verify Email"
     }
 
     const updateUsernameSubmitHandler = {
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
             if (!regexInputConfig.username.regex.test(username)) {
                 setIsUsernameValid(false);
                 // Handle invalid username format
                 return;
             }
-            authenticate({ username, email: user.email, profileImg: user.profileImg });
+
+            const { data, message, status, error } = await InternalAPI.updateUsername(username);
+            if (data && data.username === username && status === 200) {
+                authenticate({ username, email: data.email, profileImg: null });
+                if(onSuccess) onSuccess(message);
+            } else {
+                if(onFailure) onFailure(error || "Failed to update username");
+            }
             // Handle username update submission
         },
         buttonText: "Update Username"
     }
 
     const updatePasswordSubmitHandler = {
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
 
             // check old password and new password validity
@@ -90,13 +110,19 @@ function UpdateUserForm() {
             }
             // Handle password update submission
             if (oldPassword && newPassword) {
-                // save password logic here
+                const { data, message, status, error } = await InternalAPI.updatePassword(oldPassword, newPassword);
+                if (data && status === 200) {
+                    if(onSuccess) onSuccess(message);
+                } else {
+                    if(onFailure) onFailure(error || "Failed to update password");
+                }
             }
         },
         buttonText: "Update Password"
     }
 
-    return (
+    return <>
+        
         <div className="flex flex-col items-center justify-center w-full">
             <Form submit={updateImageSubmitHandler}>
                 <FileInput 
@@ -185,7 +211,7 @@ function UpdateUserForm() {
                 />
             </Form>
         </div>
-    );
+    </>
 }
 
 export default UpdateUserForm;

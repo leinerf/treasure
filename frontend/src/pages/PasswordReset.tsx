@@ -13,6 +13,7 @@ function PasswordReset() {
     const handlePasswordResetSuccess = () => {
         setShowPasswordResetForm(false);
         setShowNewPasswordForm(true);
+        setError(null);
     };
 
     const handleNewPasswordSuccess = () => {

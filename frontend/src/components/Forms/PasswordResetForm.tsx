@@ -2,7 +2,8 @@ import {useState } from "react";
 import Form from "./Form";
 import EmailInput from "./Inputs/EmailInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCalls from "../../api/internalAPI/apiCalls"
+import { InternalAPI } from "../../api/internalAPI/InternalAPI"
+
 function PasswordResetForm({onSuccess, onFailure} : {onSuccess?: (message?: string) => void; onFailure?: (error?: string) => void}) {
     const [email, setEmail] = useState(""); 
     const [validInput, setValidInput] = useState(true);
@@ -16,7 +17,7 @@ function PasswordResetForm({onSuccess, onFailure} : {onSuccess?: (message?: stri
                 return;
             }
 
-            const { message, status, error } = await apiCalls.createPasswordReset(email);
+            const { message, status, error } = await InternalAPI.createPasswordReset(email);
 
             if(status === 200 && onSuccess) {
                 onSuccess(message);

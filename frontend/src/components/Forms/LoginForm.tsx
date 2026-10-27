@@ -1,9 +1,10 @@
-import apiCalls from "../../api/internalAPI/apiCalls";
+import { InternalAPI } from "../../api/internalAPI/InternalAPI";
 import Form from "./Form";
 import PasswordInput from "./Inputs/PasswordInput";
 import TextInput from "./Inputs/TextInput";
 import { useState } from "react";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
+
 function LoginForm({onSuccess, onFailure} : {onSuccess?: (message?: string) => void; onFailure?: (error?: string) => void}) {
     const [username, setUsername] = useState("");
     const [validUsername, setValidUsername] = useState(true);
@@ -25,7 +26,7 @@ function LoginForm({onSuccess, onFailure} : {onSuccess?: (message?: string) => v
                 return;
             }
 
-            const { message, status, error } = await apiCalls.login({ username, password });
+            const { message, status, error } = await InternalAPI.login({ username, password });
             if (status === 200) {
                 if(onSuccess) {
                     onSuccess(message);

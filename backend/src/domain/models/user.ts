@@ -199,6 +199,9 @@ class User {
         if(!user){
             throw new UserNotFoundError("User not found with email: " + passwordResetCode.email);
         }
+        if(User.validateHash(newPassword, user.password)){
+            throw new InvalidPasswordError("New password cannot be the same as the old password");
+        }
         if(!User.validatePassword(newPassword)){
             throw new InvalidPasswordError("Invalid new password: " + newPassword);
         }
