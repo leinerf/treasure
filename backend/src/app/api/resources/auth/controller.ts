@@ -6,10 +6,7 @@ class AuthController {
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         const { email } = req.body;
         const { emailCode } = await User.createEmailVerificationCode(email);
-        const emailSentSuccessfully = await EmailService.sendVerificationEmail(email, emailCode.code);    
-        if(!emailSentSuccessfully){
-            return res.status(500).json({ message: "Failed to send verification email" });
-        }
+        await EmailService.sendVerificationEmail(email, emailCode.code);    
         return res.status(200).json({ message: "Verification email sent successfully" });
     }
 
@@ -35,11 +32,8 @@ class AuthController {
     public static async createPasswordReset(req: Request, res: Response): Promise<Response> {
         const { email } = req.body;
         const { passwordResetCode } = await User.createPasswordResetCode(email);
+        await EmailService.sendPasswordResetEmail(email, passwordResetCode.code);
         
-        const emailSent = await EmailService.sendPasswordResetEmail(email, passwordResetCode.code);
-        if(!emailSent){
-            return res.status(500).json({ message: "Failed to send password reset email" });
-        }
         return res.status(200).json({ message: "Password reset code created successfully" });
     }
 

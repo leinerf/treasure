@@ -21,7 +21,7 @@ class UserController {
     public static async updatePassword(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
         if (!jwt) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ error: "Unauthorized" });
         }
         const { oldPassword, newPassword } = req.body;
         const {user } = await User.updatePassword(oldPassword, newPassword, jwt);
@@ -32,7 +32,7 @@ class UserController {
     public static async updateEmail(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
         if (!jwt) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ error: "Unauthorized" });
         }
         const { newEmail, emailVerificationCode } = req.body;
         const { user } = await User.updateEmail(newEmail, emailVerificationCode, jwt);

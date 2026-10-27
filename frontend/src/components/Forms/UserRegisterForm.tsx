@@ -5,11 +5,11 @@ import EmailInput from "./Inputs/EmailInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import VerificationCodeInput from "./Inputs/VerificationCodeInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCalls from "../../util/apiCalls";
+import apiCalls from "../../api/internalAPI/apiCalls";
 
 // Call onSuccess during successful submission
 // Call onFailure during failed submission
-const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void }) => {
+const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void }) => {
     const [username, setUsername] = useState("");
     const [isUsernameValid, setIsUsernameValid] = useState(true)
     // Username validation regex: must start with a letter, can contain letters, numbers, and underscores, and be 3-21 characters long
@@ -55,7 +55,7 @@ const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFai
                 return;
             }
             // All inputs are valid, proceed with form submission logic here
-            const { status } = await apiCalls.register({
+            const { message, status, error } = await apiCalls.register({
                 username,
                 email,
                 password,
@@ -64,10 +64,10 @@ const UserRegisterForm = ({onSuccess, onFailure}: {onSuccess?: () => void, onFai
 
             // Call the onSuccess callback if provided
             if(status === 200 && onSuccess) {
-                onSuccess();
+                onSuccess(message);
             } else {
                 if(onFailure) {
-                    onFailure();
+                    onFailure(error);
                 }
             }
         },

@@ -2,9 +2,9 @@ import {useState} from "react";
 import EmailInput from "./Inputs/EmailInput";
 import Form from "./Form";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCalls from "../../util/apiCalls";
+import apiCalls from "../../api/internalAPI/apiCalls";
 // Call onSuccess during successful submission
-function EmailRegisterForm({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void}) {
+function EmailRegisterForm({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void}) {
     const [email, setEmail] = useState(""); 
     const [isEmailValid, setIsEmailValid] = useState(true); 
 
@@ -16,13 +16,13 @@ function EmailRegisterForm({onSuccess, onFailure}: {onSuccess?: () => void, onFa
                 return;
             }
             // Proceed with email verification logic here
-            const { status } = await apiCalls.createEmailVerification(email);
+            const { message, status, error } = await apiCalls.createEmailVerification(email);
             // Call the onSuccess callback if provided 
             if(status === 200 && onSuccess) {
-                onSuccess();
+                onSuccess(message);
             } else {
                 if(onFailure) {
-                    onFailure();
+                    onFailure(error);
                 }
             }
         },
