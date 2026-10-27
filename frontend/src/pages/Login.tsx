@@ -2,7 +2,7 @@ import LoginForm from "../components/Forms/LoginForm";
 import UserContext from "../contexts/UserAuthContext";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import apiCalls from "../api/internalAPI/apiCalls";
+import { InternalAPI } from "../api/internalAPI/InternalAPI";
 import ErrorMessage from "../components/ErrorMessage";
 function Login() {
     const [error, setError] = useState<string | null>(null);
@@ -10,7 +10,7 @@ function Login() {
     const { authenticate } = useContext(UserContext);
     const onSuccess = async  () => {
         // Handle successful login
-        const { data, status, error } = await apiCalls.getUserData()
+        const { data, status, error } = await InternalAPI.getUserData()
         if(!data || status !== 200) {
             authenticate({username: "", email: "", profileImg: null});
             setError(error ?? null);

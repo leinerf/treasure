@@ -2,12 +2,12 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import UserAuthContext from "../contexts/UserAuthContext";
-import apiCalls from "../api/internalAPI/apiCalls";
+import { InternalAPI } from "../api/internalAPI/InternalAPI";
 function Logout() {
     const { authenticate } = useContext(UserAuthContext);
     const navigate = useNavigate();
     useEffect(() => {
-        apiCalls.logout().finally(() => {
+        InternalAPI.logout().finally(() => {
             authenticate({username: "", email: "", profileImg: null});
             navigate("/login");
         });

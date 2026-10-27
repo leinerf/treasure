@@ -3,7 +3,8 @@ import Form from "./Form";
 import VerificationCodeInput from "./Inputs/VerificationCodeInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCalls from "../../api/internalAPI/apiCalls";
+import { InternalAPI } from "../../api/internalAPI/InternalAPI";
+
 function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void}) {
     const [password, setPassword] = useState("");
     const [isPasswordValid, setIsPasswordValid] = useState(true);
@@ -27,7 +28,7 @@ function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: (message?: string)
                 setIsConfirmPasswordValid(false);
                 return;
             }
-            const { message, status, error } = await apiCalls.resetPassword(verificationCode, password);
+            const { message, status, error } = await InternalAPI.resetPassword(verificationCode, password);
             if(status === 200 && onSuccess){ 
                 onSuccess(message)
             } else {
