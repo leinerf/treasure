@@ -13,7 +13,7 @@ describe("Auth Middleware", () => {
         const next = vi.fn();
         auth(req as Request, res as Response, next as NextFunction);
         expect(res.status).toHaveBeenCalledWith(401);
-        expect(res.json).toHaveBeenCalledWith({ message: "Unauthorized" });
+        expect(res.json).toHaveBeenCalledWith({ error: "Unauthorized" });
     });
     test("should call next if JWT is provided", async () => {
         const req: Partial<Request> = {

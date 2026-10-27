@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import UserAuthContext from "../contexts/UserAuthContext";
-import apiCalls from "../util/apiCalls";
+import apiCalls from "../api/internalAPI/apiCalls";
 function Logout() {
     const { authenticate } = useContext(UserAuthContext);
     const navigate = useNavigate();

@@ -3,15 +3,15 @@ import Form from "./Form";
 import VerificationCodeInput from "./Inputs/VerificationCodeInput";
 import PasswordInput from "./Inputs/PasswordInput";
 import { regexInputConfig } from "./Inputs/regexInputConfig";
-import apiCall from "../../util/apiCalls"
-function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: () => void, onFailure?: () => void}) {
+import apiCalls from "../../api/internalAPI/apiCalls";
+function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void}) {
     const [password, setPassword] = useState("");
     const [isPasswordValid, setIsPasswordValid] = useState(true);
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isConfirmPasswordValid, setIsConfirmPasswordValid] = useState(true);
     const [verificationCode, setVerificationCode] = useState("");
     const [isValidCode, setIsValidCode] = useState(true);
-    const [errorMessage, setErrorMessage] = useState("");
+
     const submit = {
         submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
@@ -27,13 +27,12 @@ function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: () => void, onFail
                 setIsConfirmPasswordValid(false);
                 return;
             }
-            const { data, status } = await apiCall.resetPassword(verificationCode, password);
+            const { message, status, error } = await apiCalls.resetPassword(verificationCode, password);
             if(status === 200 && onSuccess){ 
-                onSuccess()
+                onSuccess(message)
             } else {
-                setErrorMessage(data?.message || "Failed to reset password");
                 if(onFailure){ 
-                    onFailure() 
+                    onFailure(error ?? "Failed to reset password") 
                 }
             }
         },
@@ -41,7 +40,6 @@ function NewPasswordForm({onSuccess, onFailure}: {onSuccess?: () => void, onFail
     }
     return (
         <>
-        {errorMessage && <p className="error-message border-red-500 text-red-500 bg-red-100 p-2 rounded">{errorMessage}</p>}
         <Form formTitle="Create New Password" submit={submit}>
             <VerificationCodeInput
                 label="Verification Code"
