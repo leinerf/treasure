@@ -3,6 +3,7 @@ import UpdateUserForm from "../components/Forms/UpdateUserForm";
 import AccountInfo from "../components/AccountInfo";
 import ErrorMessage from "../components/ErrorMessage";
 import SuccessMessage from "../components/SuccessMessage";
+
 function Profile() {
     const options = ["Account Info", "Edit Account"];
     const [tab, setTab] = useState(0);
