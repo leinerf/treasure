@@ -1,5 +1,49 @@
-import dataSource from "../../../infra/dataSource.js";
-import { User } from "../entity/user.js";
+import type { User as UserEntity } from "../entity/User.js";
 
-const userRepository = dataSource.getRepository(User);
-export default userRepository;
+/**
+ * Repository class for managing users in the domain layer.
+ * Provides static methods to find, insert, update, and delete users.
+ * Each method throws an error indicating it is not implemented.
+ * This class serves as a blueprint for user repository implementations in the domain layer.
+ * userRepository.findOne({ where: { email } });
+ * 
+ */
+
+export class UserRepository {
+    public static async findOne(query: any): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async findOneByEmail(email: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async findOneByUsername(username: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async findOneByUsernameAndEmail(username: string, email: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async findOneById(id: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async save(user: Omit<UserEntity, "id">): Promise<UserEntity| null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async saveUserAndDeleteEmailVerification(user: Omit<UserEntity, "id">, emailVerificationId: string): Promise<UserEntity| null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async updateById(id: string, user: Partial<Omit<UserEntity, "id">>): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async updateEmailAndDeleteEmailVerification(id: string, newEmail: string, emailVerificationId: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string): Promise<UserEntity | null>{
+        throw new Error("Method not implemented.");
+    }
+    public static async deleteById(id: string): Promise<void>{
+        throw new Error("Method not implemented.");
+    }
+    public static async deleteAll(): Promise<void>{
+        throw new Error("Method not implemented.");
+    }
+}

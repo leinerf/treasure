@@ -1,12 +1,11 @@
 import User from './user.js';
 import { describe, test, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
-import emailVerificationRepository from './repository/emailVerificationRepository.js';
-import  dataSource from '../../infra/dataSource.js'
-import userRepository from './repository/userRepository.js';
-import passwordResetCodeRepository from './repository/passwordResetCodeRepository.js';
-import type { PasswordResetCode } from '../models/entity/passwordResetCode.js';
-import type { EmailVerificationCode } from '../models/entity/emailVerificationCode.js';
-import type {  User as UserEntity } from '../models/entity/user.js';
+import {EmailVerificationRepository} from '../../infra/db/repository/EmailVerificationRepository.js';
+import {UserRepository} from '../../infra/db/repository/UserRepository.js';
+import {PasswordResetRepository} from '../../infra/db/repository/PasswordResetRepository.js';
+import type { PasswordReset } from './entity/PasswordReset.js';
+import type { EmailVerification } from '../models/entity/EmailVerification.js';
+import type {  User as UserEntity } from '../models/entity/User.js';
 import { InvalidEmailError } from '../errors/InvalidEmailError.js';
 import { EmailVerificationNotFoundError } from '../errors/EmailVerificationNotFound.js';
 import { InvalidEmailVerificationError } from '../errors/InvalidEmailVerification.js';
@@ -24,9 +23,9 @@ describe('User Model Tests', () => {
   const password = 'Password!123';
   
   const cleanUpTestDB = async () => {
-    await emailVerificationRepository.deleteAll();
-    await passwordResetCodeRepository.deleteAll();
-    await userRepository.deleteAll();
+    await EmailVerificationRepository.deleteAll();
+    await PasswordResetRepository.deleteAll();
+    await UserRepository.deleteAll();
   };
   const checkUser = (user: UserEntity, expectedUsername: string, expectedEmail: string) => {
     expect(user).toBeDefined();
@@ -35,28 +34,26 @@ describe('User Model Tests', () => {
     expect(user).toHaveProperty('id', expect.any(String));
   };
 
-  const checkEmailCode = (emailCode: EmailVerificationCode, expectedEmail: string) => {
+  const checkEmailCode = (emailCode: EmailVerification, expectedEmail: string) => {
     expect(emailCode).toBeDefined();
     expect(emailCode).toHaveProperty('email', expectedEmail);
     expect(emailCode).toHaveProperty('code', expect.any(String));
-    expect(emailCode).toHaveProperty('expireAt', expect.any(Date));
+    expect(emailCode).toHaveProperty('expiresAt', expect.any(Date));
   };
 
-  const checkPasswordResetCode = (passwordResetCode: PasswordResetCode, expectedEmail: string) => {
+  const checkPasswordResetCode = (passwordResetCode: PasswordReset, expectedEmail: string) => {
     expect(passwordResetCode).toBeDefined();
     expect(passwordResetCode).toHaveProperty('email', expectedEmail);
     expect(passwordResetCode).toHaveProperty('code', expect.any(String));
-    expect(passwordResetCode).toHaveProperty('expireAt', expect.any(Date));
+    expect(passwordResetCode).toHaveProperty('expiresAt', expect.any(Date));
   };
 
   beforeAll(async () => {
-    await dataSource.initialize();
     await cleanUpTestDB();
   });
 
   afterAll(async () => {
     await cleanUpTestDB();
-    await dataSource.destroy();
   });
 
   describe('User Email Verification Tests', () => {
@@ -86,7 +83,7 @@ describe('User Model Tests', () => {
   });
 
   describe('Create New User Tests', () => {
-    let emailCode: EmailVerificationCode | null = null;
+    let emailCode: EmailVerification | null = null;
     beforeEach(async () => {
       // Clean up any existing users and email verification codes before each test
       await cleanUpTestDB();
@@ -118,9 +115,9 @@ describe('User Model Tests', () => {
       }
 
       // Manually expire the email verification code
-      emailCode.expireAt = new Date(Date.now() - 1000);
-      await emailVerificationRepository.save(emailCode);
-      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(InvalidEmailVerificationError);
+      emailCode.expiresAt = new Date(Date.now() - 1000);
+      const updatedEmailCode = await EmailVerificationRepository.updateById(emailCode.id, emailCode);
+      await expect(User.createNewUser(username, email, updatedEmailCode.code, password)).rejects.toThrow(InvalidEmailVerificationError);
     });
     test('Fail to create new user with duplicate email', async () => {
       if(!emailCode?.code) {
@@ -331,8 +328,8 @@ describe('User Model Tests', () => {
       checkUser(user, username, email);
     });
     afterEach(async () => {
-      await emailVerificationRepository.deleteAll();
-      await userRepository.deleteAll();
+      await EmailVerificationRepository.deleteAll();
+      await UserRepository.deleteAll();
     });
     // TODO: Figure out why update password has high latency 300ms
     test('Successfully update password', async () => {
@@ -422,7 +419,7 @@ describe('User Model Tests', () => {
     });
   });
   describe('Reset Password', () => {
-    let passwordResetCode: PasswordResetCode;
+    let passwordResetCode: PasswordReset;
     beforeEach(async () => {
       await cleanUpTestDB();
       const { emailCode } = await User.createEmailVerificationCode(email);
@@ -456,9 +453,9 @@ describe('User Model Tests', () => {
     });
     test('Fail to reset password with expired code', async () => {
       // Simulate code expiration
-      passwordResetCode.expireAt = new Date(Date.now() - 1000); // Set expiration to 1 second in the past
-      await passwordResetCodeRepository.save(passwordResetCode);
-      await expect(User.resetPassword('newPassword!123', passwordResetCode.code)).rejects.toThrow(InvalidPasswordResetCodeError);
+      passwordResetCode.expiresAt = new Date(Date.now() - 1000); // Set expiration to 1 second in the past
+      const updatedPasswordResetCode = await PasswordResetRepository.updateById(passwordResetCode.id, passwordResetCode);
+      await expect(User.resetPassword('newPassword!123', updatedPasswordResetCode.code)).rejects.toThrow(InvalidPasswordResetCodeError);
     });
     test('Fail to reset password with invalid email', async () => {
       await expect(User.createPasswordResetCode('invalidEmail')).rejects.toThrow(InvalidEmailError);

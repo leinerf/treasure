@@ -1,17 +1,15 @@
 
-import { type EntityManager } from "typeorm";
-import { User as UserEntity } from "./entity/user.js";
-import userRepository from "./repository/userRepository.js";
-import emailVerificationRepository from "./repository/emailVerificationRepository.js";
-import passwordResetCodeRepository from "./repository/passwordResetCodeRepository.js";
+import { type User as UserEntity } from "./entity/User.js";
+import { UserRepository } from "../../infra/db/repository/UserRepository.js";
+import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
+import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { EmailVerificationCode } from "./entity/emailVerificationCode.js";
-import { PasswordResetCode } from "./entity/passwordResetCode.js";
-import { JWT_SECRET_KEY, SALT_ROUNDS } from "../../config.js";
+import { type EmailVerification as EmailVerification } from "./entity/EmailVerification.js";
+import { type PasswordReset } from "./entity/PasswordReset.js";
+import { config } from "../../config.js";
 import crypto from "crypto";
 import { regexConfig } from "../services/regexConfig.js";
-import dataSource from "../../infra/dataSource.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
 import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
@@ -25,18 +23,18 @@ import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFo
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
 
 class User {
-    public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerificationCode }> {
+    public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
         if(!User.validateEmail(email)){
             throw new InvalidEmailError("Invalid email format: " + email);
         }
-        const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email } });
+        const existingEmailCode: EmailVerification | null = await EmailVerificationRepository.findOneByEmail(email);
         if(existingEmailCode){
-            await emailVerificationRepository.remove(existingEmailCode);
+            await EmailVerificationRepository.deleteById(existingEmailCode.id);
         }
-        const emailCode: EmailVerificationCode = await emailVerificationRepository.save({
+        const emailCode: EmailVerification = await EmailVerificationRepository.save({
             email,
             code: User.generateRandomCode(),
-            expireAt: User.expireAt()
+            expiresAt: User.expireAt()
         });
         return { emailCode }
     }
@@ -54,39 +52,31 @@ class User {
             throw new InvalidPasswordError("Invalid password format: " + password);
         }
 
-        const existingUserWithEmail: UserEntity | null = await userRepository.findOne({ where: { email } });
+        const existingUserWithEmail: UserEntity | null = await UserRepository.findOneByEmail(email);
         if(existingUserWithEmail){
             throw new UserExistsError("User with this email already exists: " + email);
         }
 
-        const existingUserWithUsername: UserEntity | null = await userRepository.findOne({ where: { username } });            
+        const existingUserWithUsername: UserEntity | null = await UserRepository.findOneByUsername(username);            
         if(existingUserWithUsername){
             throw new UserExistsError("User with this username already exists: " + username);
         }
 
-        const existingEmailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email, code: emailVerificationCode } });
+        const existingEmailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, email);
         if(!existingEmailCode){
             throw new EmailVerificationNotFoundError(email);
         }
         
-        if(existingEmailCode.expireAt < new Date()){
-            throw new InvalidEmailVerificationError("Email verification code has expired for email: " + email + " at " + existingEmailCode.expireAt + ". Request a new verification code.");
+        if(existingEmailCode.expiresAt < new Date()){
+            throw new InvalidEmailVerificationError("Email verification code has expired for email: " + email + " at " + existingEmailCode.expiresAt + ". Request a new verification code.");
         }
         
         const hashedPassword = User.hash(password);
         if(!hashedPassword){
             throw new UserError("Failed to hash password");
         }
-        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-            await transactionalEntityManager.save(UserEntity, {
-                username,
-                email,
-                password: hashedPassword,
-            })
-            await transactionalEntityManager.remove(EmailVerificationCode, existingEmailCode);
-        })
-
-        const newUser: UserEntity | null = await userRepository.findOne({ where: { username, email } });
+        await UserRepository.saveUserAndDeleteEmailVerification({ username, email, password: hashedPassword }, existingEmailCode.id);
+        const newUser: UserEntity | null = await UserRepository.findOneByUsernameAndEmail(username, email);
         if(!newUser){
             throw new UserNotFoundError("Failed to retrieve the newly created user with username: " + username + " and email: " + email)
         }
@@ -98,7 +88,7 @@ class User {
         if(!userId){
             throw new InvalidJWTError("Invalid JWT");
         }
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
         }
@@ -113,7 +103,7 @@ class User {
         if(!User.validateUsername(newUsername)){
             throw new InvalidUsernameError("could not validate username: " + newUsername);
         }
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
         }
@@ -122,9 +112,11 @@ class User {
             throw new InvalidUsernameError("New username is the same as the current username");
         }
 
-        existingUser.username = newUsername;
-        await userRepository.save(existingUser);
-        return { user: existingUser }
+        const updatedUser = await UserRepository.updateById(userId, { username: newUsername });
+        if(!updatedUser){
+            throw new UserError("Failed to update user with id: " + userId);
+        }
+        return { user: updatedUser }
     }
 
     public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ user: UserEntity }> {
@@ -136,7 +128,7 @@ class User {
             throw new InvalidPasswordError("could not validate password: " + newPassword);
         }
         
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
 
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -154,48 +146,49 @@ class User {
             throw new UserError("Failed to hash new password");
         }
             
-        existingUser.password = hashedPassword;
-        await userRepository.save(existingUser);
-        return { user: existingUser }
+        const updatedUser = await UserRepository.updateById(userId, { password: hashedPassword });
+        if(!updatedUser){
+            throw new UserError("Failed to retrieve updated user with id: " + userId);
+        }
+        return { user: updatedUser }
     }
 
-    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode: PasswordResetCode }> {
+    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode: PasswordReset }> {
         if(!User.validateEmail(email)){
             throw new InvalidEmailError("Invalid email: " + email);
         }
-        const existingUser = await userRepository.findOne({ where: { email } });
+        const existingUser = await UserRepository.findOneByEmail(email);
         if(!existingUser){
             throw new UserNotFoundError("User not found with email: " + email);
         }
         
-        const existingPasswordResetCode = await passwordResetCodeRepository.findOne({ where: { email } });
+        const existingPasswordResetCode: PasswordReset | null = await PasswordResetRepository.findOneByEmail(email);
         if(existingPasswordResetCode){
-            await passwordResetCodeRepository.remove(existingPasswordResetCode);
+            await PasswordResetRepository.deleteById(existingPasswordResetCode.id);
         }
 
-        const passwordResetCode = await passwordResetCodeRepository.save({
+        const passwordResetCode: PasswordReset | null = await PasswordResetRepository.save({
             code: User.generateRandomCode(),
             email: email,
-            expireAt: User.expireAt()
+            expiresAt: User.expireAt()
         });
 
         if(!passwordResetCode){
             throw new PasswordResetCodeNotFoundError("Failed to create password reset code");
         }
-
         return { passwordResetCode }
     }
 
     public static async resetPassword(newPassword: string, code: string): Promise<{ user: UserEntity }> {
-        const passwordResetCode = await passwordResetCodeRepository.findOne({ where: { code } });
+        const passwordResetCode: PasswordReset | null = await PasswordResetRepository.findOneByCode(code);
         if(!passwordResetCode){
             throw new PasswordResetCodeNotFoundError("Password reset code not found: " + code);
         }
 
-        if(passwordResetCode.expireAt < new Date()){
+        if(passwordResetCode.expiresAt < new Date()){
             throw new InvalidPasswordResetCodeError("Password reset code has expired: " + code  + ". Request a new password reset code.");
         }
-        const user: UserEntity | null = await userRepository.findOne({ where: { email: passwordResetCode.email } });
+        const user: UserEntity | null = await UserRepository.findOneByEmail(passwordResetCode.email);
         if(!user){
             throw new UserNotFoundError("User not found with email: " + passwordResetCode.email);
         }
@@ -209,14 +202,12 @@ class User {
         if(!hashedPassword){
             throw new UserError("Failed to hash new password");
         }
-        user.password = hashedPassword;
-
-        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-            await transactionalEntityManager.save(user);
-            await transactionalEntityManager.remove(passwordResetCode);
-        })
-
-        return { user }
+        
+        const updatedUser = await UserRepository.updatePasswordAndDeletePasswordResetCode(user.id, hashedPassword, passwordResetCode.id);
+        if(!updatedUser){
+            throw new UserError("Failed to update user password");
+        }
+        return { user: updatedUser  }
     }
     
     public static async updateEmail(newEmail: string, emailVerificationCode: string, jwt: string): Promise<{ user: UserEntity }> {
@@ -224,20 +215,20 @@ class User {
         if(!userId){
             throw new InvalidJWTError("Invalid JWT");
         }
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
         }
 
-        const emailCode: EmailVerificationCode | null = await emailVerificationRepository.findOne({ where: { email: newEmail, code: emailVerificationCode } });
+        const emailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, newEmail);
         if(!emailCode) {
             throw new EmailVerificationNotFoundError(newEmail);
         }
-        existingUser.email = newEmail;
-        await dataSource.manager.transaction(async (transactionalEntityManager: EntityManager) => {
-            await transactionalEntityManager.save(existingUser);
-            await transactionalEntityManager.remove(emailCode);
-        })
+        const updatedUser = await UserRepository.updateEmailAndDeleteEmailVerification(existingUser.id, newEmail, emailCode.id);
+        if(!updatedUser){
+            throw new UserError("Failed to update user email");
+        }
+        existingUser.email = updatedUser.email;
 
         return { user: existingUser }
     }
@@ -247,16 +238,16 @@ class User {
         if(!userId){
             throw new InvalidJWTError("Invalid JWT");
         }
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { id: userId } });
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
         }
-        await userRepository.remove(existingUser);
+        await UserRepository.deleteById(existingUser.id);
         return { user: existingUser }
     }
 
     public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string }> {
-        const existingUser: UserEntity | null = await userRepository.findOne({ where: { username } });
+        const existingUser: UserEntity | null = await UserRepository.findOneByUsername(username);
         if(!existingUser){
             throw new UserNotFoundError("User does not exist with username: " + username);
         }
@@ -273,22 +264,22 @@ class User {
 
     private static jwtEncrypt(token: string): string | null {
         try {
-            if(!JWT_SECRET_KEY){
+            if(!config.jwt_secret_key ){
                 return null;
             }
-        return jwt.sign({ id: token }, JWT_SECRET_KEY, { expiresIn: "1h" });
+        return jwt.sign({ id: token }, config.jwt_secret_key, { expiresIn: "1h" });
         } catch (error) {
             console.error(error);
             return null;
         }
     }
 
-    private static jwtDecrypt(token: string): string | null {
+    public static jwtDecrypt(token: string): string | null {
         try{
-            if(!JWT_SECRET_KEY){
+            if(!config.jwt_secret_key){
                 return null;
             }
-            const decoded = jwt.verify(token, JWT_SECRET_KEY) as { id: string };
+            const decoded = jwt.verify(token, config.jwt_secret_key) as { id: string };
             return decoded.id;
         } catch (error) {
             console.error(error);
@@ -298,10 +289,10 @@ class User {
 
     private static hash(token: string):  string | null {
         try {
-            if(!SALT_ROUNDS){
+            if(!config.salt_rounds){
                 return null;
             }
-            const salt = bcrypt.genSaltSync(Number(SALT_ROUNDS));
+            const salt = bcrypt.genSaltSync(Number(config.salt_rounds));
             return bcrypt.hashSync(token, salt);
         } catch (error) {
             console.error(error);

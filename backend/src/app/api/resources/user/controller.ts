@@ -1,6 +1,6 @@
 import { type Request, type Response } from "express";  
 import User from "../../../../domain/models/user.js";
-import type { User as UserEntity } from "../../../../domain/models/entity/user.js";
+import type { User as UserEntity } from "../../../../domain/models/entity/User.js";
 
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
@@ -39,6 +39,17 @@ class UserController {
         return res.status(200).json({ user: UserController.filterUser(user), message: "Email updated successfully" });
     }
 
+    public static async uploadProfilePicture(req: Request, res: Response): Promise<Response> {
+        // Handle profile picture upload
+        // req.file is the `avatar` file
+        // req.body will hold the text fields, if there were any
+        if (!req.file) {
+            return res.status(400).json({ error: "No file uploaded" });
+        }
+        const profilePicturePath = req.file.path;
+        const profilePicture = profilePicturePath;
+        return res.status(200).json({ message: "Profile picture updated successfully", profilePicturePath });
+    }
     private static filterUser(user: UserEntity) {
         return {
             id: user.id,

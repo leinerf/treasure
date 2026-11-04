@@ -1,0 +1,58 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d8496864-33fe-4ebc-a8dc-480320ade371",
+  "prevIds": [
+    "5da8923a-66da-43f5-9ca6-7836430a3eee"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "email_verification"
+      ],
+      "writes": [
+        "s|fk|public.email_verification.email_verification_user_id_user_id_fkey",
+        "n|fk|public.email_verification.email_verification_user_id_user_id_fkey",
+        "e|fk|public.email_verification.email_verification_user_id_user_id_fkey",
+        "n|con|public.email_verification.email_verification_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public",
+        "e|col|public.email_verification.user_id"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "email_verification",
+        "user_id"
+      ],
+      "writes": [
+        "s|col|public.email_verification.user_id",
+        "n|col|public.email_verification.user_id",
+        "e|col|public.email_verification.user_id"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"email_verification\",\"user_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"email_verification\",\"email_verification_user_id_user_id_fkey\"]"
+    }
+  ]
+}

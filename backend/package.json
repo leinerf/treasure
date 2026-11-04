@@ -15,7 +15,12 @@
         "test_migration_revert": "NODE_ENV=test typeorm-ts-node-esm migration:revert -d ./src/infra/dataSource.ts",
         "migration_run": "NODE_ENV=dev typeorm-ts-node-esm migration:run -d ./src/infra/dataSource.ts",
         "migration_revert": "NODE_ENV=dev typeorm-ts-node-esm migration:revert -d ./src/infra/dataSource.ts",
-        "migration_generate": "NODE_ENV=dev typeorm-ts-node-esm migration:generate -d ./src/infra/dataSource.ts ./src/migrations"
+        "migration_run_dev": "NODE_ENV=dev npx drizzle-kit migrate --config ./src/infra/db/drizzle.config.ts",
+        "migration_run_test": "NODE_ENV=test npx drizzle-kit migrate --config ./src/infra/db/drizzle.config.ts",
+        "migration_update_dev": "NODE_ENV=dev npx drizzle-kit push --config ./src/infra/db/drizzle.config.ts",
+        "migration_update_test": "NODE_ENV=test npx drizzle-kit push --config ./src/infra/db/drizzle.config.ts",
+        "migration_generate_dev": "NODE_ENV=dev npx drizzle-kit generate --config ./src/infra/db/drizzle.config.ts",
+        "migration_generate_test": "NODE_ENV=test npx drizzle-kit generate --config ./src/infra/db/drizzle.config.ts"
     },
     "engines": {
         "node": ">=26.0.0"
@@ -26,12 +31,12 @@
         "cookie-parser": "^1.4.7",
         "crypto": "^1.0.1",
         "dotenv": "^17.4.2",
+        "drizzle-orm": "^1.0.0-rc.5",
         "express": "^5.2.1",
         "jsonwebtoken": "^9.0.3",
+        "multer": "^2.5.0",
         "nodemailer": "^10.0.10",
-        "pg": "^8.23.0",
-        "reflect-metadata": "^0.2.2",
-        "typeorm": "^1.1.0",
+        "postgres": "^3.4.9",
         "vitest": "^5.0.0"
     },
     "devDependencies": {
@@ -39,17 +44,21 @@
         "@types/cookie-parser": "^1.4.10",
         "@types/express": "^5.0.6",
         "@types/jsonwebtoken": "^9.0.10",
+        "@types/multer": "^2.3.0",
         "@types/node": "^26.5.1",
+        "@types/pg": "^8.23.1",
         "@typescript/native": "npm:typescript@^7.0.2",
         "@vitest/coverage-v8": "^5.0.0",
+        "drizzle-kit": "^1.0.0-rc.5",
         "nodemon": "^3.1.14",
         "sequelize-cli": "^6.6.5",
         "ts-node": "^10.9.2",
-        "tsx": "^4.23.13"
+        "tsx": "^4.23.15"
     },
     "allowScripts": {
-        "esbuild@0.28.2": true,
         "fsevents@2.3.3": true,
-        "bcrypt@6.0.0": true
+        "bcrypt@6.0.0": true,
+        "esbuild@0.18.20": true,
+        "esbuild@0.25.12": true
     }
 }

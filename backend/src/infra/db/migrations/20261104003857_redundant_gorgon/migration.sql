@@ -1,0 +1,1 @@
+ALTER TABLE "password_reset" RENAME COLUMN "expired_at" TO "expires_at";
