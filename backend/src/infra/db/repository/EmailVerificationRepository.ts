@@ -1,7 +1,7 @@
 import type {  EmailVerification as EmailVerificationEntity  } from "../../../domain/models/entity/EmailVerification.js";
 import { EmailVerificationRepository as AbstractEmailVerificationRepository } from "../../../domain/models/repository/EmailVerificationRepository.js";
 import { EmailVerification } from "../../../infra/db/schema/EmailVerification.js"
-import { type Comparison as ComparisonType, Comparison } from "../../../domain/models/entity/Comparison.js";
+import { type Comparison as ComparisonType, Comparison } from "./Comparison.js";
 import { db } from "../../../infra/db/index.js";
 import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
 

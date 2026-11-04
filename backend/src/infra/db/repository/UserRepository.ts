@@ -2,8 +2,8 @@ import { db } from "../../../infra/db/index.js"
 import { User } from "../../../infra/db/schema/Users.js"
 import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
 import type { User as UserEntity } from "../../../domain/models/entity/User.js"
-import { Comparison } from "../../../domain/models/entity/Comparison.js"
-import type { Comparison as ComparisonType } from "../../../domain/models/entity/Comparison.js"
+import { Comparison } from "./Comparison.js"
+import type { Comparison as ComparisonType } from "./Comparison.js"
 import { EmailVerification } from "../../../infra/db/schema/EmailVerification.js"
 import { UserRepository as AbstractUserRepository } from "../../../domain/models/repository/UserRepository.js";
 import { PasswordReset } from "../schema/PasswordReset.js";

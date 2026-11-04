@@ -1,7 +1,7 @@
 import type {  PasswordReset as PasswordResetEntity  } from "../../../domain/models/entity/PasswordReset.js";
 import { PasswordResetRepository as AbstractPasswordResetRepository } from "../../../domain/models/repository/PasswordResetRepository.js";
 import { PasswordReset } from "../../../infra/db/schema/PasswordReset.js"
-import { type Comparison as ComparisonType, Comparison } from "../../../domain/models/entity/Comparison.js";
+import { type Comparison as ComparisonType, Comparison } from "./Comparison.js";
 import { db } from "../../../infra/db/index.js";
 import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
 
