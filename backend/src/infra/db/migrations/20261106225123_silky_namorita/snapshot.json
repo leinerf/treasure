@@ -2,11 +2,45 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "62d78bb0-a492-4cac-b36a-d3c58fdb0df2",
+  "id": "9a54e9a8-4a37-4fbe-b424-2f0dab39cf3f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "trait"
+      ],
+      "writes": [
+        "s|enum|public.trait",
+        "n|enum|public.trait",
+        "e|enum|public.trait",
+        "n|type|public.trait"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "role"
+      ],
+      "writes": [
+        "s|enum|public.role",
+        "n|enum|public.role",
+        "e|enum|public.role",
+        "n|type|public.role"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
     {
       "statementType": "create_table",
       "statementTarget": [
@@ -50,6 +84,26 @@
       "statementTarget": [
         "table",
         "public",
+        "photo_metadata"
+      ],
+      "writes": [
+        "s|tbl|public.photo_metadata",
+        "n|tbl|public.photo_metadata",
+        "e|tbl|public.photo_metadata",
+        "n|rel|public.photo_metadata",
+        "n|type|public.photo_metadata",
+        "n|rel|public.photo_metadata_pkey"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|enum|public.trait"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "user"
       ],
       "writes": [
@@ -63,30 +117,8 @@
         "n|rel|public.user_email_key"
       ],
       "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "email_verification"
-      ],
-      "writes": [
-        "s|fk|public.email_verification.email_verification_user_id_user_id_fkey",
-        "n|fk|public.email_verification.email_verification_user_id_user_id_fkey",
-        "e|fk|public.email_verification.email_verification_user_id_user_id_fkey",
-        "n|con|public.email_verification.email_verification_user_id_user_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.email_verification",
         "n|sch|public",
-        "n|tbl|public.user",
-        "n|sch|public",
-        "n|col|public.email_verification.user_id",
-        "n|col|public.user.id",
-        "e|uniqueness|public.user.id"
+        "n|enum|public.role"
       ]
     }
   ],
@@ -105,9 +137,33 @@
     },
     {
       "schema": "public",
+      "name": "photo_metadata",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "user",
       "isRlsEnabled": false,
       "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "trait",
+      "values": [
+        "basic",
+        "profile"
+      ],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "role",
+      "values": [
+        "admin",
+        "user"
+      ],
+      "entityType": "enums"
     },
     {
       "schema": "public",
@@ -118,19 +174,6 @@
       "notNull": true,
       "dimensions": 0,
       "default": "gen_random_uuid()",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "email_verification",
-      "name": "user_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -216,8 +259,86 @@
     {
       "schema": "public",
       "table": "password_reset",
-      "name": "expired_at",
+      "name": "expires_at",
       "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "filename",
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "path",
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "size",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "trait",
+      "type": "trait",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "user_id",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -280,20 +401,16 @@
     },
     {
       "schema": "public",
-      "table": "email_verification",
-      "name": "email_verification_user_id_user_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "entityType": "fks"
+      "table": "user",
+      "name": "role",
+      "type": "role",
+      "typeSchema": "public",
+      "notNull": false,
+      "dimensions": 0,
+      "default": "'user'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
     },
     {
       "schema": "public",
@@ -309,6 +426,16 @@
       "schema": "public",
       "table": "password_reset",
       "name": "password_reset_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "photo_metadata",
+      "name": "photo_metadata_pkey",
       "columns": [
         "id"
       ],

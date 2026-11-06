@@ -1,1 +1,0 @@
-ALTER TABLE "photo_metadata" ADD COLUMN "path" varchar(255) NOT NULL;

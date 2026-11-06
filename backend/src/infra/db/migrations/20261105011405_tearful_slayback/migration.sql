@@ -1,1 +1,0 @@
-ALTER TABLE "photo_metadata" ALTER COLUMN "size" SET DATA TYPE integer USING "size"::integer;

@@ -1,1 +1,0 @@
-ALTER TABLE "email_verification" DROP CONSTRAINT "email_verification_user_id_user_id_fkey", ADD CONSTRAINT "email_verification_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;
