@@ -19,7 +19,6 @@ import { InvalidJWTError } from '../errors/InvalidJWTError.js';
 import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
-import { UserError } from '../errors/UserError.js';
 
 describe('User Model Tests', () => {
   const email = 'test@example.com';

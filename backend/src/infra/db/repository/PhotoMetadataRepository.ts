@@ -58,13 +58,25 @@ export class PhotoMetadataRepository extends AbstractPhotoMetadataRepository {
 
     public static override async updateProfilePhoto(photoMetadata: Omit<PhotoMetadataEntity, "id">): Promise<PhotoMetadataEntity | null> {
         const result = await db.transaction(async (tx) => {
-            const existingProfilePhoto = await PhotoMetadataRepository.findProfilePhoto(photoMetadata.userId);
+            const existingProfilePhotoQuery = await tx.select().from(PhotoMetadata).where(
+                and(
+                    eq(PhotoMetadata.userId, photoMetadata.userId),
+                    eq(PhotoMetadata.trait, Trait.PROFILE)
+                )
+            );
+            const existingProfilePhoto = existingProfilePhotoQuery[0] || null;
             if(existingProfilePhoto){
-                await PhotoMetadataRepository.deleteById(existingProfilePhoto.id);
+                await tx.delete(PhotoMetadata).where(eq(PhotoMetadata.id, existingProfilePhoto.id));
             }
-            return await PhotoMetadataRepository.save(photoMetadata);
+            return await tx.insert(PhotoMetadata).values({
+                filename: photoMetadata.filename,
+                size: photoMetadata.size,
+                path: photoMetadata.path,
+                trait: photoMetadata.trait,
+                userId: photoMetadata.userId
+            }).returning(PhotoMetadataRepository.buildReturning());
         });
-        return result;
+        return result[0] || null;
     }
 
     public static override async deleteById(id: string): Promise<void> {

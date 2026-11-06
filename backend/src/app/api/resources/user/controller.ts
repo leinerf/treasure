@@ -1,7 +1,7 @@
 import { type Request, type Response } from "express";  
 import User from "../../../../domain/models/user.js";
 import type { User as UserEntity } from "../../../../domain/models/entity/User.js";
-import type { PhotoMetadata, PhotoMetadata as PhotoMetadataEntity } from "../../../../domain/models/entity/PhotoMetadata.js"; 
+import type { PhotoMetadata } from "../../../../domain/models/entity/PhotoMetadata.js"; 
 import fs from "fs";
 
 class UserController {

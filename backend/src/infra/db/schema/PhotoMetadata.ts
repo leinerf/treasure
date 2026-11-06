@@ -1,4 +1,4 @@
-import { integer, numeric, pgEnum, pgTable, uuid, varchar } from "drizzle-orm/pg-core";
+import { integer, pgEnum, pgTable, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const traitEnum = pgEnum("trait", ["basic", "profile"]);
 

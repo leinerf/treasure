@@ -8,24 +8,31 @@
 import { type  EmailVerification } from "../entity/EmailVerification.js"
 
 export class EmailVerificationRepository {
+    /* eslint-disable no-unused-vars */
     public static async findOneByEmail(email: string): Promise<EmailVerification | null> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async findOneByCode(code: string): Promise<EmailVerification | null> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async findOneByCodeAndEmail(code: string, email: string): Promise<EmailVerification | null> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async save(entity: Omit<EmailVerification, "id">): Promise<EmailVerification> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async updateById(id: string, entity: Partial<Omit<EmailVerification, "id">>): Promise<EmailVerification> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async deleteById(id: string): Promise<void> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
     public static async deleteAll(): Promise<void> {
         throw new Error("Method not implemented.");
     }

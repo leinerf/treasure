@@ -1,5 +1,4 @@
 import { pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
-import { User } from "./Users.js";
 
 export const EmailVerification = pgTable("email_verification", {
     id: uuid("id").primaryKey().defaultRandom(),

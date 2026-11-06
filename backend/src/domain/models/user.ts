@@ -6,7 +6,7 @@ import { PasswordResetRepository } from "../../infra/db/repository/PasswordReset
 import { PhotoMetadataRepository } from "../../infra/db/repository/PhotoMetadataRepository.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { type EmailVerification as EmailVerification } from "./entity/EmailVerification.js";
+import { type EmailVerification } from "./entity/EmailVerification.js";
 import { type PasswordReset } from "./entity/PasswordReset.js";
 import { Trait, type PhotoMetadata } from "./entity/PhotoMetadata.js";
 import { type Trait as TraitType } from "./entity/PhotoMetadata.js";
