@@ -36,7 +36,7 @@ function App() {
         setUser(null);
     }
     
-    if(user && new Date(user.exp) < new Date()){
+    if(user && new Date(user.exp) < new Date()){    
         logout();
     }
 
@@ -64,7 +64,6 @@ function App() {
                 </div>
             </BrowserRouter>
         </UserAuthContext>
-    );
-}
+)}
 
 export default App;
