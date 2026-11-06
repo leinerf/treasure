@@ -4,6 +4,7 @@ import './assets/styles/index.css'
 import Navbar from './components/Navbar'
 import UserAuthContext from "./contexts/UserAuthContext";
 import Profile from './pages/Profile';
+import { Admin } from './pages/Admin';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Logout from './pages/Logout';
@@ -50,6 +51,7 @@ function App() {
                             <Route path="/" element={<Profile /> } />
                             <Route path="profile" element={<Profile /> } />
                             <Route path="logout" element={<Logout />} />    
+                            <Route path="admin" element={<Admin />} />
                         </>)}
                         {!user && (
                             <>
