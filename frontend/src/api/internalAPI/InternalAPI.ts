@@ -1,5 +1,6 @@
 import axios from "axios";
 import config from "../../util/config";
+import type { ProfilePhotoResponse } from "./interfaces/ProfilePhotoResponse";
 import type { SimpleResponse } from "./interfaces/SimpleResponse";
 import type { UserResponse } from "./interfaces/UserResponse";
 
@@ -136,6 +137,32 @@ export class InternalAPI {
         } catch (error) {
             console.error("Error resetting password:", error);
             return { error: "Error resetting password", status: 500 };
+        }
+    }
+
+    static async uploadProfilePicture(file: File): Promise<ProfilePhotoResponse> {
+        try {
+            const formData = new FormData();
+            formData.append("profile", file);
+            const response = await InternalAPI.api.post("/user/profile-picture", formData);
+            const { photoMetadata, message, error, photoBlob } = response.data;
+            const status = response.status;
+            return { photoMetadata: { ...photoMetadata, blob: photoBlob }, message, status, error };
+        } catch (error) {
+            console.error("Error uploading profile picture:", error);
+            return { error: "Error uploading profile picture", status: 500 };
+        }
+    }
+
+    static async getProfilePicture(): Promise<{ file?: File; status: number; error?: string }> {
+        try {
+            const response = await InternalAPI.api.get("/user/profile-picture", { responseType: "blob" });
+            const file = response.data;
+            const status = response.status;
+            return {  file: new File([file], "profile-picture"), status };
+        } catch (error) {
+            console.error("Error getting profile picture:", error);
+            return { error: "Error getting profile picture", status: 500 };
         }
     }
 }

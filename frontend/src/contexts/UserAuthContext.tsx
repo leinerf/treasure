@@ -1,9 +1,17 @@
 import { createContext } from "react";
 
-const localUser = JSON.parse(localStorage.getItem("user") || JSON.stringify({isAuthenticated: false, username: "", email: "", profileImg: null}));
-const UserAuthContext = createContext<{user: {isAuthenticated: boolean, username: string, email: string, profileImg: File | null }, authenticate: (user: {username: string, email: string, profileImg: File | null}) => void}>({
+export type userInterface = {
+    username: string,
+    email: string,
+    profileImg: File | string,
+    exp: Date 
+}
+
+const localUser: userInterface | null = JSON.parse(localStorage.getItem("user") || "null");
+const UserAuthContext = createContext<{ user: userInterface | null, authenticate: (user: { [key in keyof userInterface]?: userInterface[key] }) => void, logout: () => void}>({
     user: localUser,
-    authenticate: () => {}
+    authenticate: () => {},
+    logout: () => {}
 });
 
 export default UserAuthContext;

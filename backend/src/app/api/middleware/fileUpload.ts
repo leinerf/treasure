@@ -5,7 +5,7 @@ import User from "../../../domain/models/user.js";
 import fs from "fs";
 
 const appDir = path.dirname(path.dirname(import.meta.dirname))
-const uploadDir = path.join(appDir, config.api_static_dir);
+const uploadDir = path.join(appDir, config.api_static_dir, config.api_img_dir);
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

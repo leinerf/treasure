@@ -4,28 +4,31 @@ import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { InternalAPI } from "../api/internalAPI/InternalAPI";
 import ErrorMessage from "../components/ErrorMessage";
+import dogProfile from "../assets/images/dog_profile.jpg"
+
 function Login() {
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
-    const { authenticate } = useContext(UserContext);
+    const { authenticate, logout } = useContext(UserContext);
     const onSuccess = async  () => {
         // Handle successful login
         const { data, status, error } = await InternalAPI.getUserData()
+        const { file } = await InternalAPI.getProfilePicture();
         if(!data || status !== 200) {
-            authenticate({username: "", email: "", profileImg: null});
+            logout()
             setError(error ?? null);
             return;
         }
         authenticate({
             username: data.username,
             email: data.email,
-            profileImg: null,
+            profileImg: file ?? dogProfile,
         });
         navigate("/profile");
     };
     const onFailure = (error?: string) => {
         setError(error ?? null);
-        authenticate({username: "", email: "", profileImg: null});
+        logout();
     };
     return (
         <>

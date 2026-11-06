@@ -16,6 +16,9 @@ if(!process.env.API_PORT) {
 if(!process.env.API_STATIC_DIR) {
     throw new Error('API_STATIC_DIR is not defined');
 }
+if(!process.env.API_IMG_DIR) {
+    throw new Error('API_IMG_DIR is not defined');
+}
 if(!process.env.GMAIL_ADDRESS) {
     throw new Error('GMAIL_ADDRESS is not defined');
 }
@@ -49,6 +52,7 @@ export const config = {
     api_host: process.env.API_HOST as string,
     api_port: Number(process.env.API_PORT),
     api_static_dir: process.env.API_STATIC_DIR as string,
+    api_img_dir: process.env.API_IMG_DIR as string,
     gmail_address: process.env.GMAIL_ADDRESS as string,
     gmail_app_password: process.env.GMAIL_APP_PASSWORD as string,
     jwt_secret_key: process.env.JWT_SECRET_KEY as string,

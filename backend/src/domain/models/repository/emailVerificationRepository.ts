@@ -20,7 +20,7 @@ export class EmailVerificationRepository {
     public static async save(entity: Omit<EmailVerification, "id">): Promise<EmailVerification> {
         throw new Error("Method not implemented.");
     }
-    public static async updateById(id: string, entity: EmailVerification): Promise<EmailVerification> {
+    public static async updateById(id: string, entity: Partial<Omit<EmailVerification, "id">>): Promise<EmailVerification> {
         throw new Error("Method not implemented.");
     }
     public static async deleteById(id: string): Promise<void> {

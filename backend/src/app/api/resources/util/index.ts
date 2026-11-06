@@ -4,11 +4,12 @@ import { InvalidEntryError } from "../../../../domain/errors/InvalidEntryError.j
 import { EntryExistsError } from "../../../../domain/errors/EntryExistsError.js";
 import { EntryNotFoundError } from "../../../../domain/errors/EntryNotFound.js";
 
-const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => Promise<Response>) => {
-    return async function(req: Request, res: Response, next: NextFunction): Promise<Response> {
+const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+    return async function(req: Request, res: Response, next: NextFunction): Promise<any> {
         try {
             return await fn(req, res, next);
         } catch (err) {
+            console.error(err);
             if (err instanceof InvalidEntryError || err instanceof EntryExistsError || err instanceof EntryNotFoundError) {
                 return res.status(400).json({ error: err.message });
             } else {
@@ -18,7 +19,7 @@ const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => 
     };
 };
 
-const createRoutes = (router: Router, resource: { resourcePath: string; routes: { path: string; method: string; controller: (req: Request, res: Response, next: NextFunction) => Promise<Response>; middlewares?: ((req: Request, res: Response, next: NextFunction) => void)[] }[] }) => {
+const createRoutes = (router: Router, resource: { resourcePath: string; routes: { path: string; method: string; controller: (req: Request, res: Response, next: NextFunction) => Promise<any>; middlewares?: ((req: Request, res: Response, next: NextFunction) => void)[] }[] }) => {
     const routes = resource.routes
     routes.forEach(route => {
         const fullPath = `${resource.resourcePath}${route.path}`;

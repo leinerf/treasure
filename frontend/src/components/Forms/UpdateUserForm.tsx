@@ -11,23 +11,40 @@ import { InternalAPI } from "../../api/internalAPI/InternalAPI";
 
 function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) => void, onFailure?: (error?: string) => void }) {
     const { user, authenticate } = useContext(UserAuthContext);
-    const [email, setEmail] = useState(user.email);
+    const [email, setEmail] = useState(user?.email || "");
     const [isEmailValid, setIsEmailValid] = useState(true);
     const [code, setCode] = useState("");
     const [isCodeValid, setIsCodeValid] = useState(true);
-    const [username, setUsername] = useState(user.username);
+    const [username, setUsername] = useState(user?.username || "");
     const [isUsernameValid, setIsUsernameValid] = useState(true);
     const [oldPassword, setOldPassword] = useState("");
     const [isOldPasswordValid, setIsOldPasswordValid] = useState(true);
     const [newPassword, setNewPassword] = useState("");
     const [isNewPasswordValid, setIsNewPasswordValid] = useState(true);
     const [showVerificationInput, setShowVerificationInput] = useState(false);
-    const [image, setImage] = useState<File | null>(user.profileImg);
+    const [image, setImage] = useState<File | null>(null);
 
     const updateImageSubmitHandler = {
-        submitFunction: (e: React.SyntheticEvent) => {
+        submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
-            authenticate({ username: user.username, email: user.email, profileImg: image });
+            if (image) {
+                const { status, error } = await InternalAPI.uploadProfilePicture(image);
+                if (status !== 200) {
+                    if(onFailure) onFailure(error || "Failed to upload profile picture");
+                    return;
+                }
+
+                const { file, status: fileStatus, error: fileError } = await InternalAPI.getProfilePicture();
+                
+                if (!file ||fileStatus !== 200) {
+                    if(onFailure) onFailure(fileError || "Failed to upload profile picture");
+                    return;
+                } else if(onSuccess) {
+                    onSuccess("Profile picture updated successfully");
+                }
+                authenticate({ profileImg: file });
+            }
+            
         },
         buttonText: "Update Image"
     };
@@ -63,7 +80,7 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
             }
             const { data, message, status, error } = await InternalAPI.updateEmail(email, code);
             if (data && data.email === email && status === 200) {
-                authenticate({ username: data.username, email, profileImg: null });
+                authenticate({ email: data.email });
                 if(onSuccess) onSuccess(message);
             } else {
                 if(onFailure) onFailure(error || "Failed to update email");
@@ -83,7 +100,7 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
 
             const { data, message, status, error } = await InternalAPI.updateUsername(username);
             if (data && data.username === username && status === 200) {
-                authenticate({ username, email: data.email, profileImg: null });
+                authenticate({ username: data.username });
                 if(onSuccess) onSuccess(message);
             } else {
                 if(onFailure) onFailure(error || "Failed to update username");

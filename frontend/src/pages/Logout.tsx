@@ -4,11 +4,11 @@ import { useContext } from "react";
 import UserAuthContext from "../contexts/UserAuthContext";
 import { InternalAPI } from "../api/internalAPI/InternalAPI";
 function Logout() {
-    const { authenticate } = useContext(UserAuthContext);
+    const { logout } = useContext(UserAuthContext);
     const navigate = useNavigate();
     useEffect(() => {
         InternalAPI.logout().finally(() => {
-            authenticate({username: "", email: "", profileImg: null});
+            logout();
             navigate("/login");
         });
     }, []);

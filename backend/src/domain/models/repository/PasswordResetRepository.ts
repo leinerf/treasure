@@ -13,7 +13,7 @@ export class PasswordResetRepository {
     public static async save(entity: Omit<PasswordReset, "id">): Promise<PasswordReset> {
         throw new Error("Method not implemented.");
     }
-    public static async updateById(id: string, entity: PasswordReset): Promise<PasswordReset> {
+    public static async updateById(id: string, entity: Partial<Omit<PasswordReset, "id">>): Promise<PasswordReset> {
         throw new Error("Method not implemented.");
     }
     public static async deleteById(id: string): Promise<void> {

@@ -18,6 +18,7 @@ function LoginForm({onSuccess, onFailure} : {onSuccess?: (message?: string) => v
                 setValidUsername(false);
                 
             }
+            
             if(!regexInputConfig.password.regex.test(password)) {
                 setValidPassword(false);
                 

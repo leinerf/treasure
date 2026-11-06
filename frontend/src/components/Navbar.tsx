@@ -39,12 +39,12 @@ function Navbar() {
         </div>  
       </div>
       <div className="hidden md:flex  items-center nav-right">
-        {user.isAuthenticated && (
+        {user && (
           <Dropdown title={user.username}>
             {createNavLinks(authenticatedLinks)}
           </Dropdown>
         )}
-        {!user.isAuthenticated && (createNavLinks(authLinks))}
+        {!user && (createNavLinks(authLinks))}
       </div>
       <div className="hamburger-menu md:hidden lg:hidden">
             <GiHamburgerMenu size={24} onClick={() => setIsMenuOpen(!isMenuOpen)} />
@@ -52,14 +52,14 @@ function Navbar() {
       </div>
       {isMenuOpen && (
         <div className={`mobile-menu md:hidden lg:hidden flex justify-center flex-col items-center gap-4`}>
-          {user.isAuthenticated && (<>  
+          {user && (<>  
             <div>
               <Dropdown title={user.username}>
                 {createNavLinks(authenticatedLinks)}
               </Dropdown>
             </div>
           </>)}
-          {!user.isAuthenticated && (
+          {!user && (
             <>
               {createNavLinks(authLinks)}
             </>

@@ -3,12 +3,15 @@ import { type User as UserEntity } from "./entity/User.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
+import { PhotoMetadataRepository } from "../../infra/db/repository/PhotoMetadataRepository.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { type EmailVerification as EmailVerification } from "./entity/EmailVerification.js";
 import { type PasswordReset } from "./entity/PasswordReset.js";
+import { Trait, type PhotoMetadata } from "./entity/PhotoMetadata.js";
+import { type Trait as TraitType } from "./entity/PhotoMetadata.js";
 import { config } from "../../config.js";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { regexConfig } from "../services/regexConfig.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
@@ -21,6 +24,7 @@ import { UserError } from "../errors/UserError.js";
 import { UserNotFoundError } from "../errors/UserNotFoundError.js";
 import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
+import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 
 class User {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
@@ -244,6 +248,51 @@ class User {
         }
         await UserRepository.deleteById(existingUser.id);
         return { user: existingUser }
+    }
+    
+    public static async savePhotoMetadata(filename: string, size: number, trait: TraitType, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            throw new InvalidJWTError("Invalid JWT");
+        }
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+
+        const photoMetadata = await PhotoMetadataRepository.updateProfilePhoto({
+            filename,
+            path,
+            size,
+            trait,
+            userId: existingUser.id
+        });
+        if(!photoMetadata){
+            throw new UserError("Failed to save photo metadata");
+        }
+
+        return { photoMetadata };
+    }
+
+    public static async saveProfilePhotoMetadata(filename: string, size: number, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
+        return User.savePhotoMetadata(filename, size, Trait.PROFILE, path, jwt);
+    }
+
+    public static async getProfilePhotoMetadata(jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            throw new InvalidJWTError("Invalid JWT");
+        }
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+
+        const photoMetadata = await PhotoMetadataRepository.findProfilePhoto(existingUser.id);
+        if(!photoMetadata){
+            throw new PhotoMetadataNotFoundError("User does not have profile photo uploaded");
+        }
+        return { photoMetadata };
     }
 
     public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string }> {

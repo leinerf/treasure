@@ -37,7 +37,13 @@ const resource = {
             path: "/profile-picture",
             method: "post",
             controller: UserController.uploadProfilePicture,
-            middlewares: [auth, upload.single("avatar")]
+            middlewares: [auth, upload.single("profile")]
+        },
+        {
+            path: "/profile-picture",
+            method: "get",
+            controller: UserController.getProfilePicture,
+            middlewares: [auth]
         }
     ]
 };

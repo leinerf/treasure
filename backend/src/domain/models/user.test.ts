@@ -1,11 +1,14 @@
 import User from './user.js';
+import { PhotoMetadataNotFoundError } from '../errors/PhotoMetadataNotFoundError.js';
 import { describe, test, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import {EmailVerificationRepository} from '../../infra/db/repository/EmailVerificationRepository.js';
 import {UserRepository} from '../../infra/db/repository/UserRepository.js';
 import {PasswordResetRepository} from '../../infra/db/repository/PasswordResetRepository.js';
+import {PhotoMetadataRepository} from '../../infra/db/repository/PhotoMetadataRepository.js';
 import type { PasswordReset } from './entity/PasswordReset.js';
 import type { EmailVerification } from '../models/entity/EmailVerification.js';
 import type {  User as UserEntity } from '../models/entity/User.js';
+import { Trait } from './entity/PhotoMetadata.js';
 import { InvalidEmailError } from '../errors/InvalidEmailError.js';
 import { EmailVerificationNotFoundError } from '../errors/EmailVerificationNotFound.js';
 import { InvalidEmailVerificationError } from '../errors/InvalidEmailVerification.js';
@@ -16,6 +19,7 @@ import { InvalidJWTError } from '../errors/InvalidJWTError.js';
 import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
+import { UserError } from '../errors/UserError.js';
 
 describe('User Model Tests', () => {
   const email = 'test@example.com';
@@ -25,6 +29,7 @@ describe('User Model Tests', () => {
   const cleanUpTestDB = async () => {
     await EmailVerificationRepository.deleteAll();
     await PasswordResetRepository.deleteAll();
+    await PhotoMetadataRepository.deleteAll();
     await UserRepository.deleteAll();
   };
   const checkUser = (user: UserEntity, expectedUsername: string, expectedEmail: string) => {
@@ -506,6 +511,57 @@ describe('User Model Tests', () => {
     });
     test('Fail to delete user with empty JWT', async () => {
       await expect(User.deleteUser('')).rejects.toThrow(InvalidJWTError);
+    });
+  });
+  describe('Profile Photo Metadata', () => {
+    beforeEach(async () => {
+      await cleanUpTestDB();
+
+      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { user } = await User.createNewUser(username, email, emailCode.code, password);
+      checkUser(user, username, email);
+    });
+    afterEach(async () => {
+      await cleanUpTestDB();
+    });
+
+    test('Save profile photo metadata', async () => {
+      const { jwt } = await User.createUserAuthentication(username, password);
+
+      const { photoMetadata } = await User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+
+      expect(photoMetadata).toMatchObject({
+        filename: 'profile.jpg',
+        size: 1024,
+        trait: Trait.PROFILE
+      });
+      expect(photoMetadata.id).toEqual(expect.any(String));
+      expect(photoMetadata.userId).toEqual((await User.getUser(jwt)).user.id);
+    });
+
+    test('Get profile photo metadata', async () => {
+      const { jwt } = await User.createUserAuthentication(username, password);
+      const savedPhoto = await User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+
+      const { photoMetadata } = await User.getProfilePhotoMetadata(jwt);
+
+      expect(photoMetadata).toEqual(savedPhoto.photoMetadata);
+    });
+
+    test('Fail to save profile photo metadata with invalid JWT', async () => {
+      await expect(
+        User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', 'invalidJWT')
+      ).rejects.toThrow(InvalidJWTError);
+    });
+
+    test('Fail to get profile photo metadata when none exists', async () => {
+      const { jwt } = await User.createUserAuthentication(username, password);
+
+      await expect(User.getProfilePhotoMetadata(jwt)).rejects.toThrow(PhotoMetadataNotFoundError);
+    });
+
+    test('Fail to get profile photo metadata with invalid JWT', async () => {
+      await expect(User.getProfilePhotoMetadata('invalidJWT')).rejects.toThrow(InvalidJWTError);
     });
   });
 });
