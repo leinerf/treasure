@@ -16,6 +16,12 @@ const resource = {
             middlewares: [auth]
         },
         {
+            path: "/all",
+            method: "get",
+            controller: UserController.getUsers,
+            middlewares: [auth]
+        },
+        {
             path: "/username",
             method: "put",
             controller: UserController.updateUsername,
@@ -43,6 +49,12 @@ const resource = {
             path: "/profile-picture",
             method: "get",
             controller: UserController.getProfilePicture,
+            middlewares: [auth]
+        },
+        {
+            path: "/",
+            method: "delete",
+            controller: UserController.deleteUser,
             middlewares: [auth]
         }
     ]

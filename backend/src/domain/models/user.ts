@@ -1,5 +1,5 @@
 
-import { type User as UserEntity } from "./entity/User.js";
+import { Role, type User as UserEntity } from "./entity/User.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
@@ -25,6 +25,8 @@ import { UserNotFoundError } from "../errors/UserNotFoundError.js";
 import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
 import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
+import { InvalidRoleError } from "../errors/InvalidRoleError.js";
+import { InvalidOffsetOrLimitError } from "../errors/InvalidOffsetOrLimitError.js";
 
 class User {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
@@ -79,7 +81,7 @@ class User {
         if(!hashedPassword){
             throw new UserError("Failed to hash password");
         }
-        await UserRepository.saveUserAndDeleteEmailVerification({ username, email, password: hashedPassword }, existingEmailCode.id);
+        await UserRepository.saveUserAndDeleteEmailVerification({ username, email, password: hashedPassword, role: Role.User }, existingEmailCode.id);
         const newUser: UserEntity | null = await UserRepository.findOneByUsernameAndEmail(username, email);
         if(!newUser){
             throw new UserNotFoundError("Failed to retrieve the newly created user with username: " + username + " and email: " + email)
@@ -311,6 +313,40 @@ class User {
         return { jwt };
     }
 
+    public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<UserEntity[]> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            throw new InvalidJWTError("Invalid JWT");
+        }
+
+        if(!User.validateOffsetAndLimit(offset, limit)){
+            throw new InvalidOffsetOrLimitError("Invalid offset or limit");
+        }
+        
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+        if(existingUser.role !== Role.Admin){
+            throw new InvalidRoleError("User is not authorized to view all users");
+        }
+        return UserRepository.findUsers(offset, limit);
+    }
+
+    public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<void> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            throw new InvalidJWTError("Invalid JWT");
+        }
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+        if(existingUser.role !== Role.Admin){
+            throw new InvalidRoleError("User is not authorized to delete users");
+        }
+        await UserRepository.deleteById(userIdToDelete);
+    }
     private static jwtEncrypt(token: string): string | null {
         try {
             if(!config.jwt_secret_key ){
@@ -388,6 +424,13 @@ class User {
         const now = new Date();
         now.setMinutes(now.getMinutes() + minutes);
         return now;
+    }
+
+    private static validateOffsetAndLimit(offset: number, limit: number): boolean {
+        if (!Number.isInteger(offset) || !Number.isInteger(limit) || offset < 0 || limit < 1 || limit > 100) {
+            return false;
+        }
+        return true;
     }
 }
 export default User;

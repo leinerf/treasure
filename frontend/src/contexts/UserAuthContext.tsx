@@ -1,17 +1,15 @@
 import { createContext } from "react";
+import type { User} from "../api/internalAPI/interfaces/UserResponse";
 
-export type userInterface = {
-    username: string,
-    email: string,
-    profileImg: File | string,
-    exp: Date 
+export interface UserAuth extends Omit<User, "id"> {
+    profile?: File | string
 }
 
-const localUser: userInterface | null = JSON.parse(localStorage.getItem("user") || "null");
-const UserAuthContext = createContext<{ user: userInterface | null, authenticate: (user: { [key in keyof userInterface]?: userInterface[key] }) => void, logout: () => void}>({
+const localUser: UserAuth | null = null
+const UserAuthContext = createContext<{ user: UserAuth | null, authenticate: (user: Partial<UserAuth>) => void, logout: () => void}>({
     user: localUser,
     authenticate: () => {},
     logout: () => {}
 });
 
-export default UserAuthContext;
+export default UserAuthContext; 

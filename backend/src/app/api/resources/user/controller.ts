@@ -33,9 +33,6 @@ class UserController {
     
     public static async updateEmail(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
-        if (!jwt) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
         const { newEmail, emailVerificationCode } = req.body;
         const { user } = await User.updateEmail(newEmail, emailVerificationCode, jwt);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Email updated successfully" });
@@ -43,9 +40,7 @@ class UserController {
 
     public static async uploadProfilePicture(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
-        if (!jwt) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
+        
         if (!req.file) {
             return res.status(400).json({ error: "No file uploaded" });
         }
@@ -64,6 +59,21 @@ class UserController {
         return res.status(200).sendFile(photoMetadata.path);
         
     }
+    
+    public static async getUsers(req: Request, res: Response): Promise<Response> {
+        const jwt = req.cookies.jwt;
+        const offset = Number.parseInt(String(req.query.offset ?? "0"), 10);
+        const limit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+        const users = await User.adminFindUsers(jwt, offset, limit);
+        return res.status(200).json({ users: users.map(UserController.filterUser), message: "Users retrieved successfully" });
+    }
+
+    public static async deleteUser(req: Request, res: Response): Promise<Response> {
+        const jwt = req.cookies.jwt;
+        const { user } = await User.deleteUser(jwt);
+        return res.status(200).json({ user: UserController.filterUser(user), message: "User deleted successfully" });
+    }
+
     private static filterUser(user: UserEntity) {
         return {
             id: user.id,

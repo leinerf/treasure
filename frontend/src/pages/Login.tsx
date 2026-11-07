@@ -22,7 +22,7 @@ function Login() {
         authenticate({
             username: data.username,
             email: data.email,
-            profileImg: file ?? dogProfile,
+            profile: file ?? dogProfile,
         });
         navigate("/profile");
     };

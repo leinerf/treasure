@@ -7,7 +7,7 @@ import {PasswordResetRepository} from '../../infra/db/repository/PasswordResetRe
 import {PhotoMetadataRepository} from '../../infra/db/repository/PhotoMetadataRepository.js';
 import type { PasswordReset } from './entity/PasswordReset.js';
 import type { EmailVerification } from '../models/entity/EmailVerification.js';
-import type {  User as UserEntity } from '../models/entity/User.js';
+import {  Role, type User as UserEntity } from './entity/User.js';
 import { Trait } from './entity/PhotoMetadata.js';
 import { InvalidEmailError } from '../errors/InvalidEmailError.js';
 import { EmailVerificationNotFoundError } from '../errors/EmailVerificationNotFound.js';
@@ -15,10 +15,12 @@ import { InvalidEmailVerificationError } from '../errors/InvalidEmailVerificatio
 import { InvalidUsernameError } from '../errors/InvalidUsernameError.js';
 import { UserExistsError } from '../errors/UserExistsError.js';
 import { UserNotFoundError } from '../errors/UserNotFoundError.js';
+import { InvalidRoleError } from '../errors/InvalidRoleError.js';
 import { InvalidJWTError } from '../errors/InvalidJWTError.js';
 import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
+import { InvalidOffsetOrLimitError } from '../errors/InvalidOffsetOrLimitError.js';
 
 describe('User Model Tests', () => {
   const email = 'test@example.com';
@@ -36,6 +38,7 @@ describe('User Model Tests', () => {
     expect(user).toHaveProperty('username', expectedUsername);
     expect(user).toHaveProperty('email', expectedEmail);
     expect(user).toHaveProperty('id', expect.any(String));
+    expect(user).toHaveProperty('role', Role.User)
   };
 
   const checkEmailCode = (emailCode: EmailVerification, expectedEmail: string) => {
@@ -561,6 +564,100 @@ describe('User Model Tests', () => {
 
     test('Fail to get profile photo metadata with invalid JWT', async () => {
       await expect(User.getProfilePhotoMetadata('invalidJWT')).rejects.toThrow(InvalidJWTError);
+    });
+  });
+
+  describe('Admin User Tests', () => {
+    const adminUsername = 'adminuser123';
+    const adminEmail = 'admin@example.com';
+    let adminJwt: string;
+    let regularJwt: string;
+    let regularUserId: string;
+
+    const createUser = async (name: string, mail: string) => {
+      const { emailCode } = await User.createEmailVerificationCode(mail);
+      const { user } = await User.createNewUser(name, mail, emailCode.code, password);
+      return user;
+    };
+
+    beforeEach(async () => {
+      await cleanUpTestDB();
+      const admin = await createUser(adminUsername, adminEmail);
+      await UserRepository.updateById(admin.id, { role: Role.Admin });
+      const regular = await createUser(username, email);
+      regularUserId = regular.id;
+      adminJwt = (await User.createUserAuthentication(adminUsername, password)).jwt;
+      regularJwt = (await User.createUserAuthentication(username, password)).jwt;
+    });
+    afterEach(async () => {
+      await cleanUpTestDB();
+    });
+
+    describe('adminFindUsers', () => {
+      test('Admin can list all users', async () => {
+        const users = await User.adminFindUsers(adminJwt, 0, 10);
+        expect(users).toHaveLength(2);
+        expect(users.map(u => u.username).sort()).toEqual([adminUsername, username].sort());
+      });
+      test('Respects limit', async () => {
+        const users = await User.adminFindUsers(adminJwt, 0, 1);
+        expect(users).toHaveLength(1);
+      });
+      test('Respects offset', async () => {
+        const all = await User.adminFindUsers(adminJwt, 0, 10);
+        const rest = await User.adminFindUsers(adminJwt, 1, 10);
+        expect(rest).toHaveLength(1);
+        expect(all.map(u => u.id)).toContain(rest[0]!.id);
+      });
+      test('Invalid offset or limit', async () => {
+        await expect(User.adminFindUsers(adminJwt, -1, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, 0, 0)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, 0, 101)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, 1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, 0, 1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, -1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminJwt, 0, -1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
+      });
+      test('Returns empty list when offset exceeds user count', async () => {
+        expect(await User.adminFindUsers(adminJwt, 10, 10)).toEqual([]);
+      });
+      test('Fail with invalid JWT', async () => {
+        await expect(User.adminFindUsers('invalidJWT', 0, 10)).rejects.toThrow(InvalidJWTError);
+      });
+      test('Fail when JWT user no longer exists', async () => {
+        await UserRepository.deleteById(regularUserId);
+        await expect(User.adminFindUsers(regularJwt, 0, 10)).rejects.toThrow(UserNotFoundError);
+      });
+      test('Fail for non-admin user', async () => {
+        await expect(User.adminFindUsers(regularJwt, 0, 10)).rejects.toThrow(InvalidRoleError);
+      });
+    });
+
+    describe('adminDeleteUser', () => {
+      test('Admin can delete a user', async () => {
+        await expect(User.adminDeleteUser(adminJwt, regularUserId)).resolves.toBeUndefined();
+        expect(await UserRepository.findOneById(regularUserId)).toBeNull();
+        const users = await User.adminFindUsers(adminJwt, 0, 10);
+        expect(users.map(u => u.username)).toEqual([adminUsername]);
+      });
+      test('Deleting a non-existent user does not throw', async () => {
+        await expect(
+          User.adminDeleteUser(adminJwt, '00000000-0000-0000-0000-000000000000')
+        ).resolves.toBeUndefined();
+        expect(await User.adminFindUsers(adminJwt, 0, 10)).toHaveLength(2);
+      });
+      test('Fail with invalid JWT', async () => {
+        await expect(User.adminDeleteUser('invalidJWT', regularUserId)).rejects.toThrow(InvalidJWTError);
+        expect(await UserRepository.findOneById(regularUserId)).not.toBeNull();
+      });
+      test('Fail when JWT user no longer exists', async () => {
+        await UserRepository.deleteById(regularUserId);
+        await expect(User.adminDeleteUser(regularJwt, regularUserId)).rejects.toThrow(UserNotFoundError);
+      });
+      test('Fail for non-admin user', async () => {
+        await expect(User.adminDeleteUser(regularJwt, regularUserId)).rejects.toThrow(InvalidRoleError);
+        expect(await UserRepository.findOneById(regularUserId)).not.toBeNull();
+      });
     });
   });
 });

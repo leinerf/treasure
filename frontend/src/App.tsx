@@ -1,5 +1,5 @@
-import { useState, useContext } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { useState, useContext, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import './assets/styles/index.css'
 import Navbar from './components/Navbar'
 import UserAuthContext from "./contexts/UserAuthContext";
@@ -9,38 +9,41 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Logout from './pages/Logout';
 import PasswordReset from "./pages/PasswordReset";
-import dogProfile from "./assets/images/dog_profile.jpg"
-import type { userInterface } from "./contexts/UserAuthContext";
-
+import type { Role } from "./api/internalAPI/interfaces/UserResponse";
+import type { UserAuth } from "./contexts/UserAuthContext";
+import { InternalAPI } from "./api/internalAPI/InternalAPI";
+import DogProfile from "./assets/images/dog_profile.jpg"
 function App() {
     const { user: contextUser } = useContext(UserAuthContext);
-    const [user, setUser] = useState<userInterface | null>(contextUser);
+    const [user, setUser] = useState<(UserAuth | null)>(contextUser);
 
-    const authenticate = ({username, email, profileImg}: {username?: string, email?: string, profileImg?: File | string}) => {
-        localStorage.setItem("user", JSON.stringify({ 
-            username: username || user?.username || "", 
-            email: email || user?.email || "", 
-            profileImg: profileImg || dogProfile, 
-            exp: user?.exp || new Date(Date.now() + 1000 * 60 * 60 * 3)
-        }));
-
+    const authenticate = ({username, email, role, profile}: {username?: string, email?: string, role?: Role, profile?: File | string}) => {
         setUser({ 
             username: username || user?.username || "", 
             email: email || user?.email || "", 
-            profileImg: profileImg || user?.profileImg || dogProfile, 
-            exp: user?.exp || new Date(Date.now() + 1000 * 60 * 60 * 3) 
+            role: role || user?.role || "user",
+            profile: profile || user?.profile || DogProfile
         })
     }
 
     const logout = () => {
-        localStorage.setItem("user", JSON.stringify(null));
         setUser(null);
     }
-    
-    if(user && new Date(user.exp) < new Date()){    
-        logout();
-    }
 
+    useEffect(() => {
+        const getUser = async () => {
+            const { data, status } = await InternalAPI.getUserData();
+            if (status !== 200) {
+                logout();
+                return;
+            }
+            const { file, status: fileStatus } = await InternalAPI.getProfilePicture()
+            const profile = fileStatus === 200 ? file : DogProfile
+            authenticate({username: data?.username, email: data?.email, role: data?.role, profile})
+        }
+        getUser();
+    }, [contextUser]);
+    
     return (
         <UserAuthContext value={{user, authenticate, logout}}>
             <BrowserRouter>
@@ -48,20 +51,23 @@ function App() {
                 <div className="justify-center items-center flex flex-col mt-8">
                     <Routes>
                         {user && (<>
-                            <Route path="/" element={<Profile /> } />
                             <Route path="profile" element={<Profile /> } />
                             <Route path="logout" element={<Logout />} />    
+                            {user.role === "admin" &&
                             <Route path="admin" element={<Admin />} />
+                            }
+                            <Route path="*" element={<Navigate to="/profile" />} />
                         </>)}
+
                         {!user && (
                             <>
-                                <Route path="/" element={<Login />} />
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Register />} />
                                 <Route path="/password-reset" element={<PasswordReset />} />
+                                <Route path="*" element={<Navigate to="/login" />} />
                             </>
                         )}
-                        <Route path="*" element={<div>404 Not Found</div>} />
+                        
                     </Routes>
                 </div>
             </BrowserRouter>

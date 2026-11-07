@@ -1,7 +1,7 @@
 import { db } from "../../../infra/db/index.js"
 import { User } from "../../../infra/db/schema/Users.js"
 import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
-import type { User as UserEntity } from "../../../domain/models/entity/User.js"
+import { type User as UserEntity } from "../../../domain/models/entity/User.js"
 import { Comparison } from "./Comparison.js"
 import type { Comparison as ComparisonType } from "./Comparison.js"
 import { EmailVerification } from "../../../infra/db/schema/EmailVerification.js"
@@ -45,11 +45,16 @@ export class UserRepository extends AbstractUserRepository {
         return users;
     }
 
+    public static override async findUsers(offset: number, limit: number): Promise<UserEntity[]> {
+        return db.select(UserRepository.buildReturning()).from(User).offset(offset).limit(limit);
+    }
+    
     public static override async save(user: Omit<UserEntity, "id">): Promise<UserEntity| null> {
         const result = await db.insert(User).values({
             username: user.username,
             email: user.email,
-            password: user.password
+            password: user.password,
+            role: user.role
         }).returning(UserRepository.buildReturning());
         return result[0] || null;
     }
@@ -65,7 +70,8 @@ export class UserRepository extends AbstractUserRepository {
             const insertedUser = await trx.insert(User).values({
                 username: user.username,
                 email: user.email,
-                password: user.password
+                password: user.password,
+                role: user.role
             }).returning(UserRepository.buildReturning());
             return insertedUser
         });
@@ -147,7 +153,8 @@ export class UserRepository extends AbstractUserRepository {
             id: User.id,
             username: User.username,
             email: User.email,
-            password: User.password
+            password: User.password,
+            role: User.role
         };
     }
 }

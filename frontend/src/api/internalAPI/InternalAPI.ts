@@ -2,7 +2,7 @@ import axios from "axios";
 import config from "../../util/config";
 import type { ProfilePhotoResponse } from "./interfaces/ProfilePhotoResponse";
 import type { SimpleResponse } from "./interfaces/SimpleResponse";
-import type { UserResponse } from "./interfaces/UserResponse";
+import type { UserResponse, UsersResponse } from "./interfaces/UserResponse";
 
 export class InternalAPI {
     private static api = axios.create({
@@ -79,6 +79,17 @@ export class InternalAPI {
         } catch (error) {
             console.error("Error getting user data:", error);
             return { error: "Error getting user data", status: 500 };
+        }
+    }
+    static async getUsers(offset: number, limit: number): Promise<UsersResponse> {
+        try {
+            const response = await InternalAPI.api.get("/user/all", { params: { offset, limit } });
+            const { users, message, error } = response.data;
+            const status = response.status;
+            return { data: users, message, status, error };
+        } catch (error) {
+            console.error("Error getting users:", error);
+            return { error: "Error getting users", status: 500 };
         }
     }
     static async updateUsername(username: string): Promise<UserResponse> {

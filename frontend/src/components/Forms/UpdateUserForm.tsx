@@ -42,7 +42,7 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
                 } else if(onSuccess) {
                     onSuccess("Profile picture updated successfully");
                 }
-                authenticate({ profileImg: file });
+                authenticate({ profile: file });
             }
             
         },

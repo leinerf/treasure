@@ -31,6 +31,10 @@ export class UserRepository {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
+    public static async findUsers(offset: number, limit: number): Promise<UserEntity[]>{
+        throw new Error("Method not implemented.");
+    }
+    /* eslint-disable no-unused-vars */
     public static async save(user: Omit<UserEntity, "id">): Promise<UserEntity| null>{
         throw new Error("Method not implemented.");
     }
