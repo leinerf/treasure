@@ -313,8 +313,9 @@ class User {
         return { jwt };
     }
 
-    public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<UserEntity[]> {
+    public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
         const userId = User.jwtDecrypt(jwt);
+        
         if(!userId){
             throw new InvalidJWTError("Invalid JWT");
         }
@@ -330,7 +331,10 @@ class User {
         if(existingUser.role !== Role.Admin){
             throw new InvalidRoleError("User is not authorized to view all users");
         }
-        return UserRepository.findUsers(offset, limit);
+        const users = await UserRepository.findUsers(offset, limit);
+        const count = await UserRepository.count();
+        
+        return { users, count };
     }
 
     public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<void> {
@@ -347,6 +351,7 @@ class User {
         }
         await UserRepository.deleteById(userIdToDelete);
     }
+    
     private static jwtEncrypt(token: string): string | null {
         try {
             if(!config.jwt_secret_key ){

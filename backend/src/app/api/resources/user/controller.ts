@@ -3,6 +3,7 @@ import User from "../../../../domain/models/user.js";
 import type { User as UserEntity } from "../../../../domain/models/entity/User.js";
 import type { PhotoMetadata } from "../../../../domain/models/entity/PhotoMetadata.js"; 
 import fs from "fs";
+import { InvalidOffsetOrLimitError } from "../../../../domain/errors/InvalidOffsetOrLimitError.js";
 
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
@@ -62,23 +63,30 @@ class UserController {
     
     public static async getUsers(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
-        const offset = Number.parseInt(String(req.query.offset ?? "0"), 10);
-        const limit = Number.parseInt(String(req.query.limit ?? "10"), 10);
-        const users = await User.adminFindUsers(jwt, offset, limit);
-        return res.status(200).json({ users: users.map(UserController.filterUser), message: "Users retrieved successfully" });
+        const offset = Number.parseInt(String(req.query.offset));
+        const limit = Number.parseInt(String(req.query.limit));
+        if(isNaN(offset) || isNaN(limit) || offset < 0 || limit < 0) {
+            throw new InvalidOffsetOrLimitError("Invalid offset or limit");
+        }
+        
+        const {users, count } = await User.adminFindUsers(jwt, offset, limit);
+        return res.status(200).json({ users: users.map(UserController.filterUser), count, message: "Users retrieved successfully" });
     }
 
     public static async deleteUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
-        const { user } = await User.deleteUser(jwt);
-        return res.status(200).json({ user: UserController.filterUser(user), message: "User deleted successfully" });
+        const userId  = req.params.userId as string;
+        await User.adminDeleteUser(jwt, userId);
+        return res.status(200).json({ message: "User deleted successfully" });
+        
     }
 
     private static filterUser(user: UserEntity) {
         return {
             id: user.id,
             username: user.username,
-            email: user.email
+            email: user.email,
+            role: user.role
         };
     }
 

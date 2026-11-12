@@ -23,6 +23,7 @@ function Login() {
             username: data.username,
             email: data.email,
             profile: file ?? dogProfile,
+            role: data.role
         });
         navigate("/profile");
     };

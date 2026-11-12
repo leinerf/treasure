@@ -13,3 +13,6 @@ const sql = postgres({
 })
 
 export const db = drizzle({client: sql});
+export const endDbConnection = () => {
+    sql.end();
+};

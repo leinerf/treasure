@@ -13,7 +13,9 @@ function Navbar() {
     { name: "Profile", link: "/profile" },
     { name: "Logout", link: "/logout" }
   ];
-
+  const adminLinks = [
+    { name: "Admin", link: "/admin" }
+  ];
   const authLinks = [
     { name: "Login", link: "/login" }, 
     { name: "Register", link: "/register" }
@@ -27,6 +29,7 @@ function Navbar() {
     ));
   };
 
+  console.log(user)
   return <>
     <nav className="navbar bg-gray-100 rounded mx-4 shadow-md p-4 ">
       <div className="flex justify-between w-full">
@@ -38,10 +41,11 @@ function Navbar() {
             {createNavLinks(generalLinks)}
         </div>  
       </div>
-      <div className="hidden md:flex  items-center nav-right">
+      <div className="hidden md:flex nav-right">
         {user && (
           <Dropdown title={user.username}>
-            {createNavLinks(authenticatedLinks)}
+              {user?.role === "user" && createNavLinks(authenticatedLinks)}
+              {user?.role === "admin" && createNavLinks([...adminLinks, ...authenticatedLinks])}
           </Dropdown>
         )}
         {!user && (createNavLinks(authLinks))}
@@ -51,11 +55,12 @@ function Navbar() {
       </div>
       </div>
       {isMenuOpen && (
-        <div className={`mobile-menu md:hidden lg:hidden flex justify-center flex-col items-center gap-4`}>
+        <div className={`mobile-menu md:hidden lg:hidden flex`}>
           {user && (<>  
             <div>
               <Dropdown title={user.username}>
-                {createNavLinks(authenticatedLinks)}
+                {user?.role === "user" && createNavLinks(authenticatedLinks)}
+                {user?.role === "admin" && createNavLinks([...adminLinks, ...authenticatedLinks])}
               </Dropdown>
             </div>
           </>)}

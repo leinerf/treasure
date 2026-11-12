@@ -2,44 +2,40 @@ import { useEffect, useState } from "react";
 import { Modal } from "../components/Modal";
 import ErrorMessage from "../components/ErrorMessage";
 import { InternalAPI } from "../api/internalAPI/InternalAPI";
+import { type User } from "../api/internalAPI/interfaces/UserResponse"
+import { useSearchParams } from "react-router";
+/**
+ * Admin page for managing users
+ * Initialize with the first set of users 0, 40
+ * Record first id and last id of the current set of users
+ * pull next 
+ */
 
-const PAGE_SIZE = 8;
-type AdminUser = { id: string, username: string, email: string };
-
+const PAGE_SIZE = 8
 export const Admin = () => {
-    const [pageIndex, setPageIndex] = useState(0);
-    const [users, setUsers] = useState<AdminUser[]>([]);
-    const [hasNextPage, setHasNextPage] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const [users, setUsers] = useState<User[]>([]);
+    const [count, setCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [showUserDetails, setShowUserDetails] = useState(false);
-    const [user, setUser] = useState<{ username: string, email: string } | null>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const [rightLimit, setRightLimit] = useState(0);
+    const [leftLimit, setLeftLimit] = useState(0);
+    const [currentPage, setCurrentPage] = useState(searchParams.get("page") ? parseInt(searchParams.get("page") ?? "0") : 0);
 
     useEffect(() => {
-        let cancelled = false;
-        // Fetch one extra row to know whether another page exists
-        InternalAPI.getUsers(pageIndex * PAGE_SIZE, PAGE_SIZE + 1).then((response) => {
-            if (cancelled) return;
-            if (response.status !== 200 || !response.data) {
-                setError(response.error ?? "Error getting users");
-                setUsers([]);
-                setHasNextPage(false);
-                return;
-            }
-            setError(null);
-            setUsers(response.data.slice(0, PAGE_SIZE));
-            setHasNextPage(response.data.length > PAGE_SIZE);
-        });
-        return () => { cancelled = true; };
-    }, [pageIndex]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/immutability
+        initializePage();
+    }, []);
 
-    const prevPage = () => {
-        setPageIndex((prev) => Math.max(prev - 1, 0));
-    };
-    const nextPage = () => {
-        if (hasNextPage) setPageIndex((prev) => prev + 1);
-    };
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/immutability
+        setLeftLimit(0);
+        setRightLimit(Math.ceil(count / PAGE_SIZE) - 1);
+    }, [count]);
 
-    const selectUser = (user: { username: string, email: string }) => {
+    const selectUser = (user: User) => {
         setUser(user);
         setShowUserDetails(true);
     };
@@ -49,10 +45,96 @@ export const Admin = () => {
         setUser(null);
     };
 
-    const handleDeleteUser = () => {
+    const handleDeleteUser = async (user: User) => {
         // Implement delete logic here
+        const { status } = await InternalAPI.deleteUser(user.id);
+        if (status === 200) {
+            setUsers(users.filter(u => u.id !== user.id));
+            setCount(count - 1);
+            setShowUserDetails(false);
+            setUser(null);
+        } else {
+            setError("Failed to delete user");
+        }
     };
     
+    const prevPage = () => {
+        // Implement previous page logic here
+        if (currentPage > leftLimit) {
+            handlePageClick(currentPage - 1);
+            
+        }
+    };
+
+    const nextPage = () => {
+        // Implement next page logic here
+        if (currentPage < rightLimit) {
+            handlePageClick(currentPage + 1);
+        }
+    };
+
+    const firstPage = () => {
+        handlePageClick(0);
+    };
+
+    const lastPage = () => {
+        const last = Math.ceil(count / PAGE_SIZE) - 1;
+        handlePageClick(last);
+    };
+
+    const grabUsersByPageNum = async (page: number) => {
+        const offset = page * PAGE_SIZE;
+        const limit = PAGE_SIZE;
+        const { data, count, status } = await InternalAPI.getUsers(offset, limit);
+
+        if (status === 200 && data && data.length > 0 && count !== undefined) {
+            return { users: [...data], count };
+        } else {
+            
+            return { users: [], count: 0 };
+        }
+    };
+
+
+    const initializePage = async () => {
+        const page = parseInt(searchParams.get("page") ?? "1") - 1;
+        const {users, count } = await grabUsersByPageNum(page);
+        if (users && count !== undefined) {
+            setUsers(users);
+            setCount(count);
+        } else {
+            const { users:start, count:startCount } = await grabUsersByPageNum(0);
+            setUsers(start);
+            setCount(startCount);
+        }
+        setCurrentPage(page);
+    };
+
+
+
+    const createPageNumbers = () => {
+        const pageNumbers: number[] = [];
+        
+        for(let i = currentPage - 2; i <= currentPage + 2; i++) {
+            if(i >= leftLimit && i <= rightLimit) {
+                pageNumbers.push(i);
+            }
+        }
+
+        return pageNumbers;
+    }
+
+    const handlePageClick = async (page: number) => {
+        const { users, count } = await grabUsersByPageNum(page);
+        if (users && count !== undefined) {
+            setUsers(users);
+            setCount(count);
+            setCurrentPage(page);
+            setSearchParams({ page: (page + 1).toString() });
+        }
+    };
+
+
     return (
         <>
             {showUserDetails && 
@@ -73,15 +155,21 @@ export const Admin = () => {
                             <span className="text-lg">{u.username}</span>
                             <div className="ml-auto flex flex-row gap-2">
                                 <button onClick={() => { selectUser(u); }} className="ml-auto bg-blue-500 text-white px-2 py-1 rounded">Details</button>
-                                <button onClick={() => handleDeleteUser()} className="ml-auto bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+                                <button onClick={() => handleDeleteUser(u)} className="ml-auto bg-red-500 text-white px-2 py-1 rounded">Delete</button>
                             </div>
                         </li>
                     ))}
                 </ul>
                 <div className="flex flex-row gap-2 m-2 items-center">
-                    <button onClick={prevPage} disabled={pageIndex === 0} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{"<"}</button>
-                    <span className="px-2 py-1 rounded bg-blue-500 text-white">Page {pageIndex + 1}</span>
-                    <button onClick={nextPage} disabled={!hasNextPage} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{">"}</button>
+                    <button onClick={firstPage} disabled={currentPage === leftLimit} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{"<<"}</button>
+                    <button onClick={prevPage} disabled={currentPage === leftLimit} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{"<"}</button>
+                    {createPageNumbers().map((pageNumber: number) => 
+                        <span key={pageNumber} className={`px-2 py-1 rounded ${pageNumber === currentPage ? "bg-blue-500 text-white" : "bg-gray-200 text-black"}`} onClick={() => { handlePageClick(pageNumber); }}>
+                            {pageNumber + 1}
+                        </span>
+                    )}
+                    <button onClick={nextPage} disabled={currentPage === rightLimit} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{">"}</button>
+                    <button onClick={lastPage} disabled={currentPage === rightLimit} className="bg-gray-200 text-black px-2 py-1 rounded disabled:opacity-50">{">>"}</button>
                 </div>
             </div>
         </>

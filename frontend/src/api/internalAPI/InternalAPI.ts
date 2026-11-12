@@ -84,14 +84,15 @@ export class InternalAPI {
     static async getUsers(offset: number, limit: number): Promise<UsersResponse> {
         try {
             const response = await InternalAPI.api.get("/user/all", { params: { offset, limit } });
-            const { users, message, error } = response.data;
+            const { users, count, message, error } = response.data;
             const status = response.status;
-            return { data: users, message, status, error };
+            return { data: users, count, message, status, error };
         } catch (error) {
             console.error("Error getting users:", error);
             return { error: "Error getting users", status: 500 };
         }
     }
+
     static async updateUsername(username: string): Promise<UserResponse> {
         try {
             const response = await InternalAPI.api.put("/user/username", { newUsername: username });
@@ -103,6 +104,19 @@ export class InternalAPI {
             return { error: "Error updating username", status: 500 };
         }
     }
+    
+    static async deleteUser(userId: string): Promise<SimpleResponse> {
+        try {
+            const response = await InternalAPI.api.delete(`/user/${userId}`);
+            const { message, error } = response.data;
+            const status = response.status;
+            return { message, status, error };
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            return { error: "Error deleting user", status: 500 };
+        }
+    }
+
     static async updateEmail(newEmail: string, emailVerificationCode: string): Promise<UserResponse> {
         try {
             const response = await InternalAPI.api.put("/user/email", { newEmail, emailVerificationCode });

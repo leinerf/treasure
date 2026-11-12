@@ -1,6 +1,6 @@
 import { db } from "../../../infra/db/index.js"
 import { User } from "../../../infra/db/schema/Users.js"
-import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
+import { and, eq, not, lt, lte, gt, gte, asc, count } from "drizzle-orm";
 import { type User as UserEntity } from "../../../domain/models/entity/User.js"
 import { Comparison } from "./Comparison.js"
 import type { Comparison as ComparisonType } from "./Comparison.js"
@@ -19,12 +19,15 @@ export class UserRepository extends AbstractUserRepository {
     public static override async findOneByEmail(email: string): Promise<UserEntity | null> {
         return UserRepository.findOne({ email: [email, Comparison.equal] });
     }
+
     public static override async findOneByUsername(username: string): Promise<UserEntity | null> {
         return UserRepository.findOne({ username: [username, Comparison.equal] });
     }
+
     public static override async findOneByUsernameAndEmail(username: string, email: string): Promise<UserEntity | null> {
         return UserRepository.findOne({ username: [username, Comparison.equal], email: [email, Comparison.equal] });
     }
+
     public static override async findOneById(id: string): Promise<UserEntity | null> {
         return UserRepository.findOne({ id: [id, Comparison.equal] });
     }
@@ -46,7 +49,12 @@ export class UserRepository extends AbstractUserRepository {
     }
 
     public static override async findUsers(offset: number, limit: number): Promise<UserEntity[]> {
-        return db.select(UserRepository.buildReturning()).from(User).offset(offset).limit(limit);
+        return db.select(UserRepository.buildReturning()).from(User).orderBy(asc(User.username)).offset(offset).limit(limit);
+    }
+
+    public static override async count(): Promise<number> {
+        const result = await db.select({count: count()}).from(User);
+        return result[0]?.count ?? 0;
     }
     
     public static override async save(user: Omit<UserEntity, "id">): Promise<UserEntity| null> {
@@ -77,12 +85,14 @@ export class UserRepository extends AbstractUserRepository {
         });
         return result[0] || null;
     }
+
     public static override async updateById(id: string, user: Partial<Omit<UserEntity, "id">>): Promise<UserEntity | null> {
         const result = await db.update(User).set(user).where(
             eq(User.id, id)
         ).returning(UserRepository.buildReturning());
         return result[0] || null;
     }
+
     public static override async updateEmailAndDeleteEmailVerification(id: string, newEmail: string, emailVerificationId: string): Promise<UserEntity | null> {
         const result = await db.transaction(async (trx) => {
             const deletedEmailVerification = await trx.delete(EmailVerification).where(
@@ -98,6 +108,7 @@ export class UserRepository extends AbstractUserRepository {
         });
         return result[0] || null;
     }
+
     public static override async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string): Promise<UserEntity | null> {
         const result = await db.transaction(async (trx) => {
             const deletedPasswordResetCode = await trx.delete(PasswordReset).where(
@@ -113,11 +124,13 @@ export class UserRepository extends AbstractUserRepository {
         });
         return result[0] || null;
     }
+
     public static override async deleteById(id: string): Promise<void> {
         await db.delete(User).where(
             eq(User.id, id)
         );
     }
+
     public static async delete(args: { [key in keyof UserEntity]?: [string, ComparisonType] }): Promise<void> {
         await db.delete(User).where(
             UserRepository.buildCondition("id", args.id![0], args.id![1])

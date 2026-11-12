@@ -52,7 +52,7 @@ const resource = {
             middlewares: [auth]
         },
         {
-            path: "/",
+            path: "/:userId",
             method: "delete",
             controller: UserController.deleteUser,
             middlewares: [auth]

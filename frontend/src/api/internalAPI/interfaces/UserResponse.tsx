@@ -14,5 +14,6 @@ export interface UserResponse extends BaseResponse {
 }
 
 export interface UsersResponse extends BaseResponse {
-    data?: Pick<User, "id" | "email" | "username">[];
+    data?: User[];
+    count?: number;
 }

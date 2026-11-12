@@ -595,19 +595,24 @@ describe('User Model Tests', () => {
 
     describe('adminFindUsers', () => {
       test('Admin can list all users', async () => {
-        const users = await User.adminFindUsers(adminJwt, 0, 10);
+        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
         expect(users).toHaveLength(2);
         expect(users.map(u => u.username).sort()).toEqual([adminUsername, username].sort());
+        expect(count).toBe(2);
       });
       test('Respects limit', async () => {
-        const users = await User.adminFindUsers(adminJwt, 0, 1);
+        const { users, count } = await User.adminFindUsers(adminJwt, 0, 1);
         expect(users).toHaveLength(1);
+        expect(users[0]?.username).toBe(adminUsername);
+        expect(count).toBe(2);
       });
       test('Respects offset', async () => {
         const all = await User.adminFindUsers(adminJwt, 0, 10);
         const rest = await User.adminFindUsers(adminJwt, 1, 10);
-        expect(rest).toHaveLength(1);
-        expect(all.map(u => u.id)).toContain(rest[0]!.id);
+        expect(all.count).toBe(2);
+        expect(rest.users).toHaveLength(1);
+        expect(rest.count).toBe(2);
+        expect(all.users.map(u => u.id)).toContain(rest.users[0]!.id);
       });
       test('Invalid offset or limit', async () => {
         await expect(User.adminFindUsers(adminJwt, -1, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
@@ -619,7 +624,9 @@ describe('User Model Tests', () => {
         await expect(User.adminFindUsers(adminJwt, 0, -1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
       });
       test('Returns empty list when offset exceeds user count', async () => {
-        expect(await User.adminFindUsers(adminJwt, 10, 10)).toEqual([]);
+        const result = await User.adminFindUsers(adminJwt, 10, 10);
+        expect(result.users).toEqual([]);
+        expect(result.count).toBe(2);
       });
       test('Fail with invalid JWT', async () => {
         await expect(User.adminFindUsers('invalidJWT', 0, 10)).rejects.toThrow(InvalidJWTError);
@@ -637,14 +644,17 @@ describe('User Model Tests', () => {
       test('Admin can delete a user', async () => {
         await expect(User.adminDeleteUser(adminJwt, regularUserId)).resolves.toBeUndefined();
         expect(await UserRepository.findOneById(regularUserId)).toBeNull();
-        const users = await User.adminFindUsers(adminJwt, 0, 10);
+        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
         expect(users.map(u => u.username)).toEqual([adminUsername]);
+        expect(count).toBe(1);
       });
       test('Deleting a non-existent user does not throw', async () => {
         await expect(
           User.adminDeleteUser(adminJwt, '00000000-0000-0000-0000-000000000000')
         ).resolves.toBeUndefined();
-        expect(await User.adminFindUsers(adminJwt, 0, 10)).toHaveLength(2);
+        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
+        expect(users).toHaveLength(2);
+        expect(count).toBe(2);
       });
       test('Fail with invalid JWT', async () => {
         await expect(User.adminDeleteUser('invalidJWT', regularUserId)).rejects.toThrow(InvalidJWTError);

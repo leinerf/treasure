@@ -13,10 +13,11 @@ import type { Role } from "./api/internalAPI/interfaces/UserResponse";
 import type { UserAuth } from "./contexts/UserAuthContext";
 import { InternalAPI } from "./api/internalAPI/InternalAPI";
 import DogProfile from "./assets/images/dog_profile.jpg"
+import Loading from "./components/loading";
 function App() {
     const { user: contextUser } = useContext(UserAuthContext);
     const [user, setUser] = useState<(UserAuth | null)>(contextUser);
-
+    const [loading, setLoading] = useState(true);
     const authenticate = ({username, email, role, profile}: {username?: string, email?: string, role?: Role, profile?: File | string}) => {
         setUser({ 
             username: username || user?.username || "", 
@@ -30,9 +31,11 @@ function App() {
         setUser(null);
     }
 
+
     useEffect(() => {
         const getUser = async () => {
             const { data, status } = await InternalAPI.getUserData();
+            
             if (status !== 200) {
                 logout();
                 return;
@@ -41,8 +44,9 @@ function App() {
             const profile = fileStatus === 200 ? file : DogProfile
             authenticate({username: data?.username, email: data?.email, role: data?.role, profile})
         }
-        getUser();
+        getUser().finally(() => setLoading(false));
     }, [contextUser]);
+    
     
     return (
         <UserAuthContext value={{user, authenticate, logout}}>
@@ -50,24 +54,35 @@ function App() {
                 <Navbar />
                 <div className="justify-center items-center flex flex-col mt-8">
                     <Routes>
-                        {user && (<>
-                            <Route path="profile" element={<Profile /> } />
-                            <Route path="logout" element={<Logout />} />    
-                            {user.role === "admin" &&
-                            <Route path="admin" element={<Admin />} />
-                            }
-                            <Route path="*" element={<Navigate to="/profile" />} />
-                        </>)}
-
-                        {!user && (
+                        {loading && (
+                            <Route path="*" element={
+                                <div className="flex justify-center items-center">
+                                    <Loading />
+                                </div>
+                            } />
+                        )}
+                        {!loading && (
                             <>
-                                <Route path="/login" element={<Login />} />
-                                <Route path="/register" element={<Register />} />
-                                <Route path="/password-reset" element={<PasswordReset />} />
-                                <Route path="*" element={<Navigate to="/login" />} />
+                                { user && (<>
+                                    <Route path="/profile" element={<Profile /> } />
+                                    <Route path="/logout" element={<Logout />} />    
+                                    {user.role === "admin" &&
+                                    <Route path="/admin" element={<Admin />} />
+                                    }
+                                    <Route path="/test" element={<div>Test Page</div>} />
+                                    <Route path="*" element={<Navigate to="/profile" />} />
+                                </>)}
+
+                                {!user && (
+                                    <>
+                                        <Route path="/login" element={<Login />} />
+                                        <Route path="/register" element={<Register />} />
+                                        <Route path="/password-reset" element={<PasswordReset />} />
+                                        <Route path="*" element={<Navigate to="/login" />} />
+                                    </>
+                                )}
                             </>
                         )}
-                        
                     </Routes>
                 </div>
             </BrowserRouter>
