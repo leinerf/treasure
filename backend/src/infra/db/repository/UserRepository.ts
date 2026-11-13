@@ -13,6 +13,7 @@ import { PasswordReset } from "../schema/PasswordReset.js";
  * Allows separation between database logic and domain logic.
  * Encapsulates all necessary database operations related to users.
  * Provides methods to find, insert, and delete users.
+ * Provides methods to search for users based on partial matches.
  */
 
 export class UserRepository extends AbstractUserRepository {
