@@ -4,7 +4,7 @@ import type { User as UserEntity } from "../../../../domain/models/entity/User.j
 import type { PhotoMetadata } from "../../../../domain/models/entity/PhotoMetadata.js"; 
 import fs from "fs";
 import { InvalidOffsetOrLimitError } from "../../../../domain/errors/InvalidOffsetOrLimitError.js";
-
+import LoggingService from "../../../../domain/services/loggingService.js";
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
@@ -18,6 +18,7 @@ class UserController {
         const { newUsername } = req.body;
         const { user } = await User.updateUsername(newUsername, jwt);
         
+        LoggingService.info(`Username updated successfully for user with id: ${user.id}, email: ${user.email}, username: ${user.username}`);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Username updated successfully" });
     }
     
@@ -29,6 +30,7 @@ class UserController {
         const { oldPassword, newPassword } = req.body;
         const {user } = await User.updatePassword(oldPassword, newPassword, jwt);
         
+        LoggingService.info(`Password updated successfully for user with id: ${user.id}`);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Password updated successfully" });
     }
     
@@ -36,6 +38,8 @@ class UserController {
         const jwt = req.cookies.jwt;
         const { newEmail, emailVerificationCode } = req.body;
         const { user } = await User.updateEmail(newEmail, emailVerificationCode, jwt);
+        
+        LoggingService.info(`Email updated successfully for user with id: ${user.id}, username: ${user.username}, email: ${user.email} to ${newEmail}`);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Email updated successfully" });
     }
 
@@ -48,6 +52,7 @@ class UserController {
         const { size, filename, path } = req.file;
         const { photoMetadata } = await User.saveProfilePhotoMetadata(filename, size, path, jwt);
         const photoBlob = new Blob([await fs.promises.readFile(path)]);
+        
         return res.status(200).json({ photoMetadata: UserController.filterPhotoMetadata(photoMetadata), message: "Profile picture updated successfully", photoBlob });
     }
 
@@ -58,7 +63,6 @@ class UserController {
         }
         const { photoMetadata } = await User.getProfilePhotoMetadata(jwt);
         return res.status(200).sendFile(photoMetadata.path);
-        
     }
     
     public static async getUsers(req: Request, res: Response): Promise<Response> {
@@ -77,13 +81,16 @@ class UserController {
         const jwt = req.cookies.jwt;
         const query = String(req.query.query);
         const { users } = await User.adminSearchUsers(jwt, query);
+
         return res.status(200).json({ users: users.map(UserController.filterUser), message: "Search results retrieved successfully" });
     }
 
     public static async deleteUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
         const userId  = req.params.userId as string;
-        await User.adminDeleteUser(jwt, userId);
+        const { user }  = await User.adminDeleteUser(jwt, userId);
+
+        LoggingService.info(`User deleted successfully with id: ${user?.id}, username: ${user?.username}, email: ${user?.email}`);
         return res.status(200).json({ message: "User deleted successfully" });
         
     }

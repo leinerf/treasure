@@ -5,5 +5,8 @@
     "scripts": {
         "lint": "oxlint",
         "lint:fix": "oxlint --fix"
+    },
+    "dependencies": {
+        "winston": "^3.19.0"
     }
 }

@@ -132,10 +132,14 @@ export class UserRepository extends AbstractUserRepository {
         return result[0] || null;
     }
 
-    public static override async deleteById(id: string): Promise<void> {
-        await db.delete(User).where(
+    public static override async deleteById(id: string): Promise<UserEntity | null> {
+        const users =  await db.delete(User).where(
             eq(User.id, id)
-        );
+        ).returning(UserRepository.buildReturning());
+        if (!users[0]) {
+            return null;
+        }
+        return users[0];
     }
 
     public static async delete(args: { [key in keyof UserEntity]?: [string, ComparisonType] }): Promise<void> {

@@ -1,19 +1,22 @@
 import { type Request, type Response } from "express";  
 import User from "../../../../domain/models/user.js";
 import EmailService from "../../../../domain/services/emailService.js";
+import LoggingService from "../../../../domain/services/loggingService.js";
 
 class AuthController {
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         const { email } = req.body;
         const { emailCode } = await User.createEmailVerificationCode(email);
-        await EmailService.sendVerificationEmail(email, emailCode.code);    
+        await EmailService.sendVerificationEmail(email, emailCode.code);  
+        
         return res.status(200).json({ message: "Verification email sent successfully" });
     }
 
     public static async register(req: Request, res: Response): Promise<Response> {
         const { username, email, emailVerificationCode, password } = req.body;
-        await User.createNewUser(username, email, emailVerificationCode, password);
-
+        const { user } = await User.createNewUser(username, email, emailVerificationCode, password);
+        
+        LoggingService.info(`New user registered with email: ${email} and id: ${user.id}`);
         return res.status(200).json({ message: "User registered successfully" });
     }
 
@@ -43,8 +46,9 @@ class AuthController {
         if (typeof code !== "string") {
             return res.status(400).json({ message: "Invalid password reset code" });
         }
-        await User.resetPassword(newPassword, code);
+        const { user } = await User.resetPassword(newPassword, code);
 
+        LoggingService.info(`Password reset successfully for user with id: ${user.id}, email: ${user.email} and code: ${code} `);
         return res.status(200).json({ message: "Password reset successfully" });
     }
 }

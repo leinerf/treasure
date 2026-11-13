@@ -63,7 +63,7 @@ export class UserRepository {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
-    public static async deleteById(id: string): Promise<void>{
+    public static async deleteById(id: string): Promise<UserEntity | null>{
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */

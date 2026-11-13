@@ -3,14 +3,14 @@ import { Router } from "express";
 import { InvalidEntryError } from "../../../../domain/errors/InvalidEntryError.js";
 import { EntryExistsError } from "../../../../domain/errors/EntryExistsError.js";
 import { EntryNotFoundError } from "../../../../domain/errors/EntryNotFound.js";
-
+import LoggingService from "../../../../domain/services/loggingService.js";
 const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
     return async function(req: Request, res: Response, next: NextFunction): Promise<any> {
         try {
             return await fn(req, res, next);
         } catch (err) {
-            console.error(err);
-            if (err instanceof InvalidEntryError || err instanceof EntryExistsError || err instanceof EntryNotFoundError) {
+            LoggingService.error(err);
+            if (err instanceof InvalidEntryError || err instanceof EntryExistsError || err instanceof EntryNotFoundError) {                    
                 return res.status(400).json({ error: err.message });
             } else {
                 return res.status(500).json({ error: "Internal Server Error" });

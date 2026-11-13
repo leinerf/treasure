@@ -356,7 +356,7 @@ class User {
         return { users };
     }
 
-    public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<void> {
+    public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
         const userId = User.jwtDecrypt(jwt);
         if(!userId){
             throw new InvalidJWTError("Invalid JWT");
@@ -368,7 +368,8 @@ class User {
         if(existingUser.role !== Role.Admin){
             throw new InvalidRoleError("User is not authorized to delete users");
         }
-        await UserRepository.deleteById(userIdToDelete);
+        const user = await UserRepository.deleteById(userIdToDelete);
+        return { user };
     }
     
     private static jwtEncrypt(token: string): string | null {

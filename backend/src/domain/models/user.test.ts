@@ -677,7 +677,7 @@ describe('User Model Tests', () => {
 
     describe('adminDeleteUser', () => {
       test('Admin can delete a user', async () => {
-        await expect(User.adminDeleteUser(adminJwt, regularUserId)).resolves.toBeUndefined();
+        await expect(User.adminDeleteUser(adminJwt, regularUserId)).resolves.toEqual({ user: expect.any(Object) });
         expect(await UserRepository.findOneById(regularUserId)).toBeNull();
         const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
         expect(users.map(u => u.username)).toEqual([adminUsername]);
@@ -686,7 +686,7 @@ describe('User Model Tests', () => {
       test('Deleting a non-existent user does not throw', async () => {
         await expect(
           User.adminDeleteUser(adminJwt, '00000000-0000-0000-0000-000000000000')
-        ).resolves.toBeUndefined();
+        ).resolves.toEqual({ user: null });
         const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
         expect(users).toHaveLength(2);
         expect(count).toBe(2);
