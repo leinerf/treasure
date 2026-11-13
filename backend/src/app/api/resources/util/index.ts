@@ -9,10 +9,11 @@ const errorWrapper =  (fn: (req: Request, res: Response, next: NextFunction) => 
         try {
             return await fn(req, res, next);
         } catch (err) {
-            LoggingService.error(err);
             if (err instanceof InvalidEntryError || err instanceof EntryExistsError || err instanceof EntryNotFoundError) {                    
                 return res.status(400).json({ error: err.message });
             } else {
+                //log error for debugging unexpected issues
+                LoggingService.error(err);
                 return res.status(500).json({ error: "Internal Server Error" });
             }
         }
