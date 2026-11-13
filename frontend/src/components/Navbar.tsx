@@ -11,15 +11,27 @@ function Navbar() {
 
   const authenticatedLinks = [
     { name: "Profile", link: "/profile" },
-    { name: "Logout", link: "/logout" }
+    { name: "Logout", link: "/logout" },
   ];
   const adminLinks = [
     { name: "Admin", link: "/admin" }
   ];
+  
   const authLinks = [
     { name: "Login", link: "/login" }, 
     { name: "Register", link: "/register" }
   ];
+
+  const createlinks = () => {
+    if (user?.role === "user") {
+      return authenticatedLinks;
+    } else if (user?.role === "admin") {
+      return [...adminLinks, ...authenticatedLinks];
+    }
+    return authLinks;
+  };
+
+  const links = createlinks();
 
   const createNavLinks = (links: { name: string; link: string }[]) => {
     return links.map((item, index) => (
@@ -29,7 +41,6 @@ function Navbar() {
     ));
   };
 
-  console.log(user)
   return <>
     <nav className="navbar bg-gray-100 rounded mx-4 shadow-md p-4 ">
       <div className="flex justify-between w-full">
@@ -42,13 +53,9 @@ function Navbar() {
         </div>  
       </div>
       <div className="hidden md:flex nav-right">
-        {user && (
-          <Dropdown title={user.username}>
-              {user?.role === "user" && createNavLinks(authenticatedLinks)}
-              {user?.role === "admin" && createNavLinks([...adminLinks, ...authenticatedLinks])}
+          <Dropdown title={user?.username || "Guest"}>
+              {createNavLinks(links)}      
           </Dropdown>
-        )}
-        {!user && (createNavLinks(authLinks))}
       </div>
       <div className="hamburger-menu md:hidden lg:hidden">
             <GiHamburgerMenu size={24} onClick={() => setIsMenuOpen(!isMenuOpen)} />
@@ -56,20 +63,11 @@ function Navbar() {
       </div>
       {isMenuOpen && (
         <div className={`mobile-menu md:hidden lg:hidden flex`}>
-          {user && (<>  
             <div>
-              <Dropdown title={user.username}>
-                {user?.role === "user" && createNavLinks(authenticatedLinks)}
-                {user?.role === "admin" && createNavLinks([...adminLinks, ...authenticatedLinks])}
+              <Dropdown title={user?.username || "Guest"}>
+                {createNavLinks(links)}
               </Dropdown>
             </div>
-          </>)}
-          {!user && (
-            <>
-              {createNavLinks(authLinks)}
-            </>
-          )}
-          {createNavLinks(generalLinks)}
         </div>
       )}
 

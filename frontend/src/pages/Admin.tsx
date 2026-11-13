@@ -147,7 +147,6 @@ export const Admin = () => {
     };
 
     const handleSelect = (result: {id?: string, name: string, email?: string, role?: Role}) => {
-        console.log(result)
         if (!result.id || !result.name || !result.email || !result.role) {
             return;
         }

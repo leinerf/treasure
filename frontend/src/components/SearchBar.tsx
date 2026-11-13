@@ -21,6 +21,7 @@ export function SearchBar({ onSearch, onSelect, title }: { onSearch: (query: str
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { value } = e.target;
         setQuery(value);
+        setShowResults(false);
         if(value.trim().length >= 3) {
             debounced(value);
         }
@@ -41,7 +42,7 @@ export function SearchBar({ onSearch, onSelect, title }: { onSearch: (query: str
                     className="border rounded p-2 w-full"
                 />
                 {showResults && (
-                <div className="absolute bg-white border rounded mt-2 p-2 w-full">
+                <div className="absolute bg-white border rounded mt-2 p-2 w-full max-h-60 overflow-hidden overflow-y-scroll">
                     <ul>
                         {results.map((result, index) => (
                             <li key={index} className="p-1 cursor-pointer hover:bg-gray-200" onClick={() => onSelect(result)}>
