@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Modal } from "../components/Modal";
 import ErrorMessage from "../components/ErrorMessage";
 import { InternalAPI } from "../api/internalAPI/InternalAPI";
-import { type User } from "../api/internalAPI/interfaces/UserResponse"
+import { type Role, type User } from "../api/internalAPI/interfaces/UserResponse"
 import { useSearchParams } from "react-router";
+import { SearchBar } from "../components/SearchBar";
 /**
  * Admin page for managing users
  * Initialize with the first set of users 0, 40
@@ -134,7 +135,24 @@ export const Admin = () => {
         }
     };
 
+    const handleSearch = async (query: string) => {
+        
+        const { data, status } = await InternalAPI.searchUser(query);
+        if (status === 200 && data && data.length > 0) {
+            const transformedData = data.map((user: User) => ({ id: user.id, name: user.username, email: user.email, role: user.role }));
+            return [...transformedData];
+        } else {
+            return [];
+        }
+    };
 
+    const handleSelect = (result: {id?: string, name: string, email?: string, role?: Role}) => {
+        console.log(result)
+        if (!result.id || !result.name || !result.email || !result.role) {
+            return;
+        }
+        selectUser({ id: result.id, username: result.name, email: result.email, role: result.role });
+    };
     return (
         <>
             {showUserDetails && 
@@ -147,6 +165,11 @@ export const Admin = () => {
                     </ul>
                 </div>
             </Modal>}
+            <div className="w-2/3 flex flex-row justify-center items-center gap-2">
+                <SearchBar onSearch={handleSearch} onSelect={handleSelect} title="Search Users" />
+            </div>
+            
+
             <div className="w-2/3 flex flex-col justify-center items-center">
                 <ErrorMessage message={error} />
                 <ul className="w-2/3 ">

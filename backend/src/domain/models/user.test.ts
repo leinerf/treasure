@@ -21,6 +21,7 @@ import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
 import { InvalidOffsetOrLimitError } from '../errors/InvalidOffsetOrLimitError.js';
+import { InvalidQueryError } from '../errors/InvalidQueryError.js';
 
 describe('User Model Tests', () => {
   const email = 'test@example.com';
@@ -637,6 +638,40 @@ describe('User Model Tests', () => {
       });
       test('Fail for non-admin user', async () => {
         await expect(User.adminFindUsers(regularJwt, 0, 10)).rejects.toThrow(InvalidRoleError);
+      });
+    });
+
+    describe('adminSearchUsers', () => {
+      test('Admin can search for a partial username', async () => {
+        const { users } = await User.adminSearchUsers(adminJwt, 'stuser');
+        expect(users.map(u => u.id)).toEqual([regularUserId]);
+        expect(users[0]?.username).toBe(username);
+      });
+      test('Returns all users matching the query', async () => {
+        const { users } = await User.adminSearchUsers(adminJwt, 'user123');
+        expect(users.map(u => u.username).sort()).toEqual([adminUsername, username].sort());
+      });
+      test('Fail with query shorter than 3 characters', async () => {
+        await expect(User.adminSearchUsers(adminJwt, 'us')).rejects.toThrow(InvalidQueryError);
+      });
+      test('Returns no users when no username matches', async () => {
+        await expect(User.adminSearchUsers(adminJwt, 'missing')).resolves.toEqual({ users: [] });
+      });
+      test('Searches usernames rather than emails', async () => {
+        await expect(User.adminSearchUsers(adminJwt, '@example.com')).resolves.toEqual({ users: [] });
+      });
+      test('Fail with empty query', async () => {
+        await expect(User.adminSearchUsers(adminJwt, '')).rejects.toThrow(InvalidQueryError);
+      });
+      test('Fail with invalid JWT', async () => {
+        await expect(User.adminSearchUsers('invalidJWT', 'user')).rejects.toThrow(InvalidJWTError);
+      });
+      test('Fail when JWT user no longer exists', async () => {
+        await UserRepository.deleteById(regularUserId);
+        await expect(User.adminSearchUsers(regularJwt, 'user')).rejects.toThrow(UserNotFoundError);
+      });
+      test('Fail for non-admin user', async () => {
+        await expect(User.adminSearchUsers(regularJwt, 'user')).rejects.toThrow(InvalidRoleError);
       });
     });
 

@@ -56,6 +56,12 @@ const resource = {
             method: "delete",
             controller: UserController.deleteUser,
             middlewares: [auth]
+        },
+        {
+            path: "/search",
+            method: "get",
+            controller: UserController.searchUsers,
+            middlewares: [auth]
         }
     ]
 };

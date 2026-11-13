@@ -73,6 +73,13 @@ class UserController {
         return res.status(200).json({ users: users.map(UserController.filterUser), count, message: "Users retrieved successfully" });
     }
 
+    public static async searchUsers(req: Request, res: Response): Promise<Response> {
+        const jwt = req.cookies.jwt;
+        const query = String(req.query.query);
+        const { users } = await User.adminSearchUsers(jwt, query);
+        return res.status(200).json({ users: users.map(UserController.filterUser), message: "Search results retrieved successfully" });
+    }
+
     public static async deleteUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
         const userId  = req.params.userId as string;

@@ -1,4 +1,3 @@
-
 import { Role, type User as UserEntity } from "./entity/User.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
@@ -27,6 +26,7 @@ import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFo
 import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 import { InvalidRoleError } from "../errors/InvalidRoleError.js";
 import { InvalidOffsetOrLimitError } from "../errors/InvalidOffsetOrLimitError.js";
+import { InvalidQueryError } from "../errors/InvalidQueryError.js";
 
 class User {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
@@ -335,6 +335,25 @@ class User {
         const count = await UserRepository.count();
         
         return { users, count };
+    }
+
+    public static async adminSearchUsers(jwt: string, query: string): Promise<{ users: UserEntity[] }> {
+        const userId = User.jwtDecrypt(jwt);
+        if(!userId){
+            throw new InvalidJWTError("Invalid JWT");
+        }
+        if(!query || query.trim().length < 3){
+            throw new InvalidQueryError("Query must be at least 3 characters long");
+        }
+        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
+        if(!existingUser){
+            throw new UserNotFoundError("User not found with id: " + userId);
+        }
+        if(existingUser.role !== Role.Admin){
+            throw new InvalidRoleError("User is not authorized to search users");
+        }
+        const users = await UserRepository.searchUsers(query, "username");
+        return { users };
     }
 
     public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<void> {

@@ -105,6 +105,18 @@ export class InternalAPI {
         }
     }
     
+    static async searchUser(query: string): Promise<UsersResponse> {
+        try {
+            const response = await InternalAPI.api.get("/user/search", { params: { query } });
+            const { users, count, message, error } = response.data;
+            const status = response.status;
+            return { data: users, count, message, status, error };
+        } catch (error) {
+            console.error("Error searching users:", error);
+            return { error: "Error searching users", status: 500 };
+        }
+    }
+    
     static async deleteUser(userId: string): Promise<SimpleResponse> {
         try {
             const response = await InternalAPI.api.delete(`/user/${userId}`);

@@ -1,6 +1,6 @@
 import { db } from "../../../infra/db/index.js"
 import { User } from "../../../infra/db/schema/Users.js"
-import { and, eq, not, lt, lte, gt, gte, asc, count } from "drizzle-orm";
+import { and, eq, not, lt, lte, gt, gte, asc, count, like } from "drizzle-orm";
 import { type User as UserEntity } from "../../../domain/models/entity/User.js"
 import { Comparison } from "./Comparison.js"
 import type { Comparison as ComparisonType } from "./Comparison.js"
@@ -26,6 +26,12 @@ export class UserRepository extends AbstractUserRepository {
 
     public static override async findOneByUsernameAndEmail(username: string, email: string): Promise<UserEntity | null> {
         return UserRepository.findOne({ username: [username, Comparison.equal], email: [email, Comparison.equal] });
+    }
+
+    public static override async searchUsers(query: string, field: keyof UserEntity): Promise<UserEntity[]> {
+        return db.select(UserRepository.buildReturning()).from(User).where(
+            like(User[field], `%${query}%`)
+        );
     }
 
     public static override async findOneById(id: string): Promise<UserEntity | null> {
