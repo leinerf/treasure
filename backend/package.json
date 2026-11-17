@@ -8,8 +8,7 @@
     "main": "index.js",
     "scripts": {
         "build": "tsc",
-        "dev": "NODE_ENV=dev tsx src/app/api/index.ts",
-        "start": "NODE_ENV=dev tsx src/app/api/index.ts",
+        "start:dev": "NODE_ENV=dev tsx src/app/api/index.ts",
         "test": "NODE_ENV=test vitest --coverage",
         "migration_run_dev": "NODE_ENV=dev npx drizzle-kit migrate --config ./src/infra/db/drizzle.config.ts",
         "migration_run_test": "NODE_ENV=test npx drizzle-kit migrate --config ./src/infra/db/drizzle.config.ts",
@@ -30,7 +29,7 @@
         "multer": "^2.5.0",
         "nodemailer": "^10.0.10",
         "postgres": "^3.4.9",
-        "vitest": "^5.0.0"
+        "winston": "^3.19.0"
     },
     "devDependencies": {
         "@faker-js/faker": "^9.9.0",
@@ -47,7 +46,8 @@
         "nodemon": "^3.1.14",
         "sequelize-cli": "^6.6.5",
         "ts-node": "^10.9.2",
-        "tsx": "^4.23.15"
+        "tsx": "^4.23.15",
+        "vitest": "^5.0.0"
     },
     "allowScripts": {
         "fsevents@2.3.3": true,
