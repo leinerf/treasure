@@ -79,7 +79,7 @@ class UserController {
         }
 
         const { photoMetadata } = await User.getProfilePhotoMetadata(jwt);
-        const { filename: key, path: bucket } = photoMetadata;
+        const { filename: key } = photoMetadata;
         const url = await FileService.getPhotoUrlFromAWS(key);
         return res.status(200).json({ url });
     }
