@@ -202,4 +202,30 @@ export class InternalAPI {
             return { error: "Error getting profile picture", status: 500 };
         }
     }
+
+    static async uploadProfilePictureToAWS(file: File): Promise<SimpleResponse> {   
+        try {
+            const formData = new FormData();
+            formData.append("profile", file);
+            const response = await InternalAPI.api.post("/user/profile-picture/aws", formData);
+            const { message, error } = response.data;
+            const status = response.status;
+            return { message, status, error };
+        } catch (error) {
+            console.error("Error uploading profile picture to AWS:", error);
+            return { error: "Error uploading profile picture to AWS", status: 500 };
+        }
+    }
+
+    static async getProfilePictureFromAWS(): Promise<{ url?: string; status: number; error?: string }> {
+        try {
+            const response = await InternalAPI.api.get("/user/profile-picture/aws");
+            const { url } = response.data;
+            const status = response.status;
+            return { url, status };
+        } catch (error) {
+            console.error("Error getting profile picture from AWS:", error);
+            return { error: "Error getting profile picture from AWS", status: 500 };
+        }
+    }
 }

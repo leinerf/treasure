@@ -40,8 +40,9 @@ function App() {
                 logout();
                 return;
             }
-            const { file, status: fileStatus } = await InternalAPI.getProfilePicture()
-            const profile = fileStatus === 200 ? file : DogProfile
+            // const { file, status: fileStatus } = await InternalAPI.getProfilePicture()
+            const { url, status: awsStatus } = await InternalAPI.getProfilePictureFromAWS();
+            const profile = awsStatus === 200 ? url : DogProfile
             authenticate({username: data?.username, email: data?.email, role: data?.role, profile})
         }
         getUser().finally(() => setLoading(false));

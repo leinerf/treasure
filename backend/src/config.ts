@@ -47,6 +47,19 @@ if(!process.env.DB_NAME) {
     throw new Error('DB_NAME is not defined');
 }
 
+if(!process.env.ACCESS_KEY_ID) {
+    throw new Error('ACCESS_KEY_ID is not defined');
+}
+if(!process.env.SECRET_ACCESS_KEY) {
+    throw new Error('SECRET_ACCESS_KEY is not defined');
+}
+if(!process.env.BUCKET_NAME) {
+    throw new Error('BUCKET_NAME is not defined');
+}
+if(!process.env.AWS_REGION) {
+    throw new Error('AWS_REGION is not defined');
+}
+
 export const config = {
     env: process.env.NODE_ENV as string,
     api_host: process.env.API_HOST as string,
@@ -62,4 +75,8 @@ export const config = {
     db_username: process.env.DB_USERNAME as string,
     db_password: process.env.DB_PASSWORD as string,
     db_name: process.env.DB_NAME as string,
+    aws_access_key_id: process.env.ACCESS_KEY_ID as string,
+    aws_secret_access_key: process.env.SECRET_ACCESS_KEY as string,
+    aws_s3_bucket_name: process.env.BUCKET_NAME as string,
+    aws_s3_region: process.env.AWS_REGION as string,
 };

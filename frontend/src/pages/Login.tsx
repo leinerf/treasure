@@ -13,7 +13,8 @@ function Login() {
     const onSuccess = async  () => {
         // Handle successful login
         const { data, status, error } = await InternalAPI.getUserData()
-        const { file } = await InternalAPI.getProfilePicture();
+        // const { file } = await InternalAPI.getProfilePicture();
+        const { url: file } = await InternalAPI.getProfilePictureFromAWS();
         if(!data || status !== 200) {
             logout()
             setError(error ?? null);

@@ -5,6 +5,9 @@ import type { PhotoMetadata } from "../../../../domain/models/entity/PhotoMetada
 import fs from "fs";
 import { InvalidOffsetOrLimitError } from "../../../../domain/errors/InvalidOffsetOrLimitError.js";
 import LoggingService from "../../../../domain/services/loggingService.js";
+import { FileService } from "../../../../domain/services/fileService.js";
+import { config } from "../../../../config.js";
+
 class UserController {
     public static async getUser(req: Request, res: Response): Promise<Response> {
         const jwt = req.cookies.jwt;
@@ -56,6 +59,31 @@ class UserController {
         return res.status(200).json({ photoMetadata: UserController.filterPhotoMetadata(photoMetadata), message: "Profile picture updated successfully", photoBlob });
     }
 
+    public static async uploadProfilePictureToAWS(req: Request, res: Response): Promise<Response> {
+        const jwt = req.cookies.jwt;
+        
+        if(!req.file || !req.file.buffer ){
+            throw new Error("No file uploaded or file buffer is empty");
+        }
+        const { size } = req.file;
+        
+        const key = await FileService.uploadToAWS(req.file.originalname, req.file.buffer);
+        const { photoMetadata } = await User.saveProfilePhotoMetadata(key, size, config.aws_s3_bucket_name,  jwt);
+        return res.status(200).json({ message: "Profile picture uploaded to AWS successfully", photoMetadata: UserController.filterPhotoMetadata(photoMetadata) });
+    }
+
+    public static async getProfilePictureFromAWS(req: Request, res: Response): Promise<Response | void> {
+        const jwt = req.cookies.jwt;
+        if (!jwt) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const { photoMetadata } = await User.getProfilePhotoMetadata(jwt);
+        const { filename: key, path: bucket } = photoMetadata;
+        const url = await FileService.getPhotoUrlFromAWS(key);
+        return res.status(200).json({ url });
+    }
+    
     public static async getProfilePicture(req: Request, res: Response): Promise<Response | void> {
         const jwt = req.cookies.jwt;
         if (!jwt) {

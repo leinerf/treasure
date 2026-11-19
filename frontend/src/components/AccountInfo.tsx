@@ -7,6 +7,7 @@ function AccountInfo() {
         <div className="p-4  rounded-lg bg-white shadow-md w-1/3 min-w-[300px] flex flex-col items-center">
             {user && (
                 <>
+                    {/* <img src={typeof user.profile === "string" || !user.profile ? user.profile : URL.createObjectURL(user.profile)} alt="Profile" className="rounded-full mt-2 h-40 w-40 self-center" /> */}
                     <img src={typeof user.profile === "string" || !user.profile ? user.profile : URL.createObjectURL(user.profile)} alt="Profile" className="rounded-full mt-2 h-40 w-40 self-center" />
                     <h2 className="text-xl font-bold mb-4">Account Information</h2>
                     {user && (

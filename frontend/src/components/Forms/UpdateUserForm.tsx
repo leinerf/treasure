@@ -28,21 +28,34 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
         submitFunction: async (e: React.SyntheticEvent) => {
             e.preventDefault();
             if (image) {
-                const { status, error } = await InternalAPI.uploadProfilePicture(image);
-                if (status !== 200) {
-                    if(onFailure) onFailure(error || "Failed to upload profile picture");
-                    return;
-                }
+                // const { status, error } = await InternalAPI.uploadProfilePicture(image);
+                // if (status !== 200) {
+                //     if(onFailure) onFailure(error || "Failed to upload profile picture");
+                //     return;
+                // }
 
-                const { file, status: fileStatus, error: fileError } = await InternalAPI.getProfilePicture();
+                // const { file, status: fileStatus, error: fileError } = await InternalAPI.getProfilePicture();
                 
-                if (!file ||fileStatus !== 200) {
-                    if(onFailure) onFailure(fileError || "Failed to upload profile picture");
+                const { status: awsStatus, error: awsError } = await InternalAPI.uploadProfilePictureToAWS(image);
+                if (awsStatus !== 200) {
+                    if(onFailure) onFailure(awsError || "Failed to upload profile picture to AWS");
                     return;
-                } else if(onSuccess) {
-                    onSuccess("Profile picture updated successfully");
                 }
-                authenticate({ profile: file });
+                const {url, status: getUrlStatus, error: getUrlError } = await InternalAPI.getProfilePictureFromAWS();
+                if (getUrlStatus !== 200) {
+                    if(onFailure) onFailure(getUrlError || "Failed to get profile picture from AWS");
+                    return;
+                }
+                if(onSuccess) onSuccess("Profile picture updated successfully");
+                authenticate({ profile: url });
+                
+                // if (!file ||fileStatus !== 200) {
+                //     if(onFailure) onFailure(fileError || "Failed to upload profile picture");
+                //     return;
+                // } else if(onSuccess) {
+                //     onSuccess("Profile picture updated successfully");
+                // }
+                // authenticate({ profile: file });
             }
             
         },
