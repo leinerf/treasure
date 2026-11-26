@@ -58,7 +58,7 @@ class UserController {
         const jwt = res.locals.accessToken;
         
         if (!req.file) {
-            return res.status(400).json({ error: "No file uploaded" });
+            return res.status(400).json({ error: "Upload a JPEG, PNG, WebP or GIF image" });
         }
         const { size, filename, path } = req.file;
         const { photoMetadata } = await PhotoData.saveProfilePhotoMetadata(filename, size, path, jwt);

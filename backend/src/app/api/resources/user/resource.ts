@@ -2,7 +2,7 @@ import UserController from "./controller.js";
 import { auth } from "../../middleware/auth.js";
 import { Router } from "express";
 import { createRoutes } from "../util/index.js";
-import upload, { bufferUpload } from "../../middleware/fileUpload.js";
+import { bufferUploadSingle, uploadSingleImage } from "../../middleware/fileUpload.js";
 
 
 const router = Router();
@@ -44,7 +44,7 @@ const resource = {
             path: "/profile-picture",
             method: "post",
             controller: UserController.uploadProfilePicture,
-            middlewares: [auth, upload.single("profile")]
+            middlewares: [auth, uploadSingleImage("profile")]
         },
         {
             path: "/profile-picture",
@@ -68,7 +68,7 @@ const resource = {
             path: "/profile-picture/aws",
             method: "post",
             controller: UserController.uploadProfilePictureToAWS,
-            middlewares: [auth, bufferUpload.single("profile")]
+            middlewares: [auth, bufferUploadSingle("profile")]
         },
         {
             path: "/profile-picture/aws",

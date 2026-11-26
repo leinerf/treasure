@@ -121,6 +121,10 @@ starts loading something from another origin (a font, analytics, an API), add th
 origin to the matching directive. The policy applies when Express serves the built
 frontend; the Vite dev server on port 5173 does not send it.
 
+Profile photo uploads accept one image of at most 5 MB; larger files get HTTP 413.
+The disk upload route takes only JPEG, PNG, WebP or GIF images and stores each under
+a server-generated name, never the name the client sent.
+
 For local frontend development, create `frontend/.env`:
 
 ```dotenv
