@@ -20,7 +20,7 @@ export class RefreshTokenRepository extends AbstractRefreshTokenRepository {
         return result[0]!;
     }
 
-    /** Marks an unrotated token as rotated. Returns false if another request rotated it first. */
+    /** Marks an unrotated refresh token as rotated. Returns false if another request rotated it first. */
     public static override async markRotated(id: string, rotatedAt: Date): Promise<boolean> {
         const result = await db.update(RefreshToken).set({ rotatedAt })
             .where(and(eq(RefreshToken.id, id), isNull(RefreshToken.rotatedAt)))

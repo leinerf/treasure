@@ -44,8 +44,10 @@ HttpOnly, SameSite=Strict cookie scoped to `/api/auth`; the cookie is Secure
 when `NODE_ENV` is `prod` or `production`. Existing sessions must sign in again
 after this change.
 
-Each refresh token is recorded in the `refresh_token` table and is rotated on
-every refresh. Logout revokes the current session; changing or resetting a
+Each refresh token is recorded in the `refresh_token` table and is rotated
+(replaced by a new refresh token) on every refresh. Only refresh tokens are
+rotated: each refresh also issues a brand-new access token, and the previous
+access token is not tracked and simply expires. Logout revokes the current session; changing or resetting a
 password, or an admin deleting the account, revokes all of the user's sessions
 (a password change keeps the browser that made it signed in). Changing the email
 revokes nothing: sessions signed in before the change stay valid until they
