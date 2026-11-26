@@ -16,7 +16,7 @@ const paths = vi.hoisted(() => {
 });
 
 vi.mock("../../../config.js", () => ({ config: { api_static_dir: paths.staticDir, api_img_dir: "images" } }));
-vi.mock("../../../domain/models/user.js", () => ({ default: { jwtDecrypt: () => "user-1" } }));
+vi.mock("../../../domain/services/tokenService.js", () => ({ TokenService: { userIdFromAccessToken: () => "user-1" } }));
 
 const { generateUploadFilename, IMAGE_EXTENSIONS, MAX_UPLOAD_BYTES, uploadSingleImage, bufferUploadSingle } = await import("./fileUpload.js");
 

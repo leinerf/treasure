@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import User from "./user.js";
+import { TokenService } from "../services/tokenService.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
@@ -109,7 +110,7 @@ describe("User validation integration", () => {
     });
 
     test("rejects invalid pagination and search queries after validating the token", async () => {
-        vi.spyOn(User, "jwtDecrypt").mockReturnValue("user-id");
+        vi.spyOn(TokenService, "userIdFromAccessToken").mockReturnValue("user-id");
         await expect(User.adminFindUsers("access-token", 0, 0)).rejects.toBeInstanceOf(InvalidOffsetOrLimitError);
         await expect(User.adminSearchUsers("access-token", "  ab  ")).rejects.toBeInstanceOf(InvalidQueryError);
         expect(UserRepository.findOneById).not.toHaveBeenCalled();

@@ -1,18 +1,14 @@
-import User from "./user.js";
+import { TokenService } from "../services/tokenService.js";
 import { Trait, type PhotoMetadata, type Trait as TraitType } from "./entity/PhotoMetadata.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { PhotoMetadataRepository } from "../../infra/db/repository/PhotoMetadataRepository.js";
-import { InvalidJWTError } from "../errors/InvalidJWTError.js";
 import { UserNotFoundError } from "../errors/UserNotFoundError.js";
 import { UserError } from "../errors/UserError.js";
 import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 
 export class PhotoData {
     public static async savePhotoMetadata(filename: string, size: number, trait: TraitType, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -37,10 +33,7 @@ export class PhotoData {
     }
 
     public static async getProfilePhotoMetadata(jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { PhotoData } from "./photoData.js";
-import User from "./user.js";
+import { TokenService } from "../services/tokenService.js";
 import { Role, type User as UserEntity } from "./entity/User.js";
 import { Trait, type PhotoMetadata } from "./entity/PhotoMetadata.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
@@ -10,8 +10,8 @@ import { UserNotFoundError } from "../errors/UserNotFoundError.js";
 import { UserError } from "../errors/UserError.js";
 import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 
-vi.mock("./user.js", () => ({
-    default: { jwtDecrypt: vi.fn() }
+vi.mock("../services/tokenService.js", () => ({
+    TokenService: { userIdFromAccessToken: vi.fn() }
 }));
 vi.mock("../../infra/db/repository/UserRepository.js", () => ({
     UserRepository: { findOneById: vi.fn() }
@@ -39,7 +39,7 @@ describe("PhotoData", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(User.jwtDecrypt).mockReturnValue(user.id);
+        vi.mocked(TokenService.userIdFromAccessToken).mockReturnValue(user.id);
         vi.mocked(UserRepository.findOneById).mockResolvedValue(user);
         vi.mocked(PhotoMetadataRepository.updateProfilePhoto).mockResolvedValue(photoMetadata);
         vi.mocked(PhotoMetadataRepository.findProfilePhoto).mockResolvedValue(photoMetadata);
@@ -48,7 +48,7 @@ describe("PhotoData", () => {
     test("saves profile metadata for the authenticated user", async () => {
         await expect(PhotoData.saveProfilePhotoMetadata("profile.jpg", 1024, "/photos/profile.jpg", "access-token"))
             .resolves.toEqual({ photoMetadata });
-        expect(User.jwtDecrypt).toHaveBeenCalledWith("access-token");
+        expect(TokenService.userIdFromAccessToken).toHaveBeenCalledWith("access-token");
         expect(PhotoMetadataRepository.updateProfilePhoto).toHaveBeenCalledWith({
             filename: "profile.jpg", size: 1024, path: "/photos/profile.jpg", trait: Trait.PROFILE, userId: user.id
         });
@@ -67,7 +67,7 @@ describe("PhotoData", () => {
     });
 
     test("rejects invalid tokens and missing users without touching photo metadata", async () => {
-        vi.mocked(User.jwtDecrypt).mockReturnValueOnce(null);
+        vi.mocked(TokenService.userIdFromAccessToken).mockImplementationOnce(() => { throw new InvalidJWTError("Invalid JWT"); });
         await expect(PhotoData.getProfilePhotoMetadata("invalid")).rejects.toBeInstanceOf(InvalidJWTError);
         vi.mocked(UserRepository.findOneById).mockResolvedValueOnce(null);
         await expect(PhotoData.saveProfilePhotoMetadata("profile.jpg", 1024, "/photo.jpg", "access-token"))

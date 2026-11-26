@@ -2,7 +2,7 @@ import multer from "multer";
 import type { RequestHandler } from "express";
 import path from "path";
 import {config } from "../../../config.js";
-import User from "../../../domain/models/user.js";
+import { TokenService } from "../../../domain/services/tokenService.js";
 import fs from "fs";
 import crypto from "node:crypto";
 
@@ -45,21 +45,17 @@ const uploadToServerDest = (userId: string) => {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const jwt = req.res?.locals.accessToken;
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            return cb(new Error("Invalid JWT"), "");
+        let userId: string;
+        try {
+            userId = TokenService.userIdFromAccessToken(req.res?.locals.accessToken);
+        } catch (error) {
+            return cb(error as Error, "");
         }
         
         
         cb(null, uploadToServerDest(userId));
     },
     filename: (req, file, cb) => {
-        const jwt = req.res?.locals.accessToken;
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            return cb(new Error("Invalid JWT"), "");
-        }
         const filename = generateUploadFilename(file.mimetype);
         if(!filename){
             return cb(new Error("Unsupported file type"), "");

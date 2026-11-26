@@ -12,7 +12,6 @@ import { TokenService } from "../services/tokenService.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
 import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
-import { InvalidJWTError } from "../errors/InvalidJWTError.js";
 import { InvalidPasswordResetCodeError } from "../errors/InvalidPasswordResetCode.js";
 import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
 import { UserExistsError } from "../errors/UserExistsError.js";
@@ -70,10 +69,7 @@ class User {
     }
     
     public static async getUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -82,10 +78,7 @@ class User {
     }
 
     public static async updateUsername(newUsername: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         if(!ValidationService.isValidUsername(newUsername)){
             throw new InvalidUsernameError("could not validate username: " + newUsername);
         }
@@ -106,10 +99,7 @@ class User {
     }
 
     public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         if(!ValidationService.isValidPassword(newPassword)){
             throw new InvalidPasswordError("Invalid new password format");
         }
@@ -174,10 +164,7 @@ class User {
     }
     
     public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -202,10 +189,7 @@ class User {
     }
 
     public static async deleteUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -223,19 +207,12 @@ class User {
         if(!await ValidationService.matchesPassword(password, existingUser.password)){
             throw new InvalidPasswordError("Invalid password");
         }
-        const jwt = User.jwtEncrypt(existingUser.id.toString());
-        if(!jwt){
-            throw new UserError("Error creating JWT");
-        }
+        const jwt = TokenService.createAccessToken(existingUser.id);
         return { jwt };
     }
 
     public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
-        const userId = User.jwtDecrypt(jwt);
-        
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
 
         if(!ValidationService.isValidOffsetAndLimit(offset, limit)){
             throw new InvalidOffsetOrLimitError("Invalid offset or limit");
@@ -255,10 +232,7 @@ class User {
     }
 
     public static async adminSearchUsers(jwt: string, query: string): Promise<{ users: UserEntity[] }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         if(!ValidationService.isValidSearchQuery(query)){
             throw new InvalidQueryError("Query must be at least 3 characters long");
         }
@@ -274,10 +248,7 @@ class User {
     }
 
     public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -289,29 +260,6 @@ class User {
         return { user };
     }
     
-    private static jwtEncrypt(token: string): string | null {
-        try {
-            if(!config.jwt_secret_key ){
-                return null;
-            }
-        return TokenService.createAccessToken(token);
-        } catch (error) {
-            console.error(error);
-            return null;
-        }
-    }
-
-    public static jwtDecrypt(token: string): string | null {
-        try{
-            if(!config.jwt_secret_key){
-                return null;
-            }
-            return TokenService.verifyAccessToken(token);
-        } catch (error) {
-            console.error(error);
-            return null;
-        }
-    }
 
     private static async hash(token: string): Promise<string | null> {
         try {
