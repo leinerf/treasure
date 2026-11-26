@@ -13,6 +13,10 @@ if(!process.env.API_PORT) {
     throw new Error('API_PORT is not defined');
 }
 
+if(!process.env.APP_BASE_URL) {
+    throw new Error('APP_BASE_URL is not defined');
+}
+
 if(!process.env.API_STATIC_DIR) {
     throw new Error('API_STATIC_DIR is not defined');
 }
@@ -64,8 +68,13 @@ export const config = {
     env: process.env.NODE_ENV as string,
     api_host: process.env.API_HOST as string,
     api_port: Number(process.env.API_PORT),
+    app_base_url: process.env.APP_BASE_URL as string,
     api_static_dir: process.env.API_STATIC_DIR as string,
     api_img_dir: process.env.API_IMG_DIR as string,
+    allowed_origins: (process.env.ALLOWED_ORIGINS ?? "")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
     gmail_address: process.env.GMAIL_ADDRESS as string,
     gmail_app_password: process.env.GMAIL_APP_PASSWORD as string,
     jwt_secret_key: process.env.JWT_SECRET_KEY as string,

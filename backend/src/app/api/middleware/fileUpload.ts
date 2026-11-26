@@ -17,8 +17,8 @@ const uploadToServerDest = (userId: string) => {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const jwt = req.cookies.jwt; // Access the JWT from cookies if needed for authentication or logging
-        const userId = User.jwtDecrypt(jwt); // Example method to get user ID from JWT, replace with actual implementation if needed
+        const jwt = req.res?.locals.accessToken;
+        const userId = User.jwtDecrypt(jwt);
         if(!userId){
             return cb(new Error("Invalid JWT"), "");
         }
@@ -27,8 +27,8 @@ const storage = multer.diskStorage({
         cb(null, uploadToServerDest(userId));
     },
     filename: (req, file, cb) => {
-        const jwt = req.cookies.jwt; // Access the JWT from cookies if needed for authentication or logging
-        const userId = User.jwtDecrypt(jwt); // Example method to get user ID from JWT, replace with actual implementation if needed
+        const jwt = req.res?.locals.accessToken;
+        const userId = User.jwtDecrypt(jwt);
         if(!userId){
             return cb(new Error("Invalid JWT"), "");
         }

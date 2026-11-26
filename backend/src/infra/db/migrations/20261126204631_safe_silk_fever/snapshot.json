@@ -1,0 +1,57 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "5f83f1ca-3002-4708-ad18-ae6ea1d266ce",
+  "prevIds": [
+    "95fb659c-9b20-41a3-91b0-113dab109266"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "refresh_token",
+        "refresh_token_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.refresh_token_user_id_idx",
+        "n|idx|public.refresh_token_user_id_idx",
+        "e|idx|public.refresh_token_user_id_idx",
+        "n|rel|public.refresh_token_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.refresh_token",
+        "n|sch|public",
+        "n|col|public.refresh_token.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "refresh_token",
+        "name": "refresh_token_user_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

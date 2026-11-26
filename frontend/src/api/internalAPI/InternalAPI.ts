@@ -1,16 +1,96 @@
-import axios from "axios";
-import config from "../../util/config";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import type { ProfilePhotoResponse } from "./interfaces/ProfilePhotoResponse";
 import type { SimpleResponse } from "./interfaces/SimpleResponse";
 import type { UserResponse, UsersResponse } from "./interfaces/UserResponse";
 
+type RetriableRequest = InternalAxiosRequestConfig & { _retried?: boolean; _sessionVersion?: number };
+
 export class InternalAPI {
+    private static accessToken: string | null = null;
+    private static sessionVersion = 0;
+    private static refreshRequest: { version: number; promise: Promise<string | null> } | null = null;
+    private static unauthorizedHandler: (() => void) | null = null;
     private static api = axios.create({
         baseURL: "/api",
         validateStatus: function (status) {
             return status >= 200;
         }
     });
+
+    static {
+        this.api.interceptors.request.use((request) => {
+            const retriable: RetriableRequest = request;
+            retriable._sessionVersion ??= this.sessionVersion;
+            if (!request.url?.startsWith("/auth/") && this.accessToken) {
+                request.headers.set("Authorization", `Bearer ${this.accessToken}`);
+            }
+            return request;
+        });
+        this.api.interceptors.response.use(async (response) => {
+            const request: RetriableRequest = response.config;
+            if (response.status !== 401 || request.url?.startsWith("/auth/") || request._sessionVersion !== this.sessionVersion) {
+                return response;
+            }
+            if (request._retried) {
+                if (request.headers.get("Authorization") === `Bearer ${this.accessToken}`) {
+                    this.expireSession();
+                }
+                return response;
+            }
+            request._retried = true;
+            const sentToken = request.headers.get("Authorization");
+            const token = this.accessToken && sentToken !== `Bearer ${this.accessToken}`
+                ? this.accessToken
+                : await this.refreshAccessToken();
+            if (!token) {
+                return response;
+            }
+            request.headers.set("Authorization", `Bearer ${token}`);
+            return this.api.request(request);
+        });
+    }
+
+    static setUnauthorizedHandler(handler: (() => void) | null): void {
+        this.unauthorizedHandler = handler;
+    }
+
+    static clearSession(): void {
+        this.sessionVersion++;
+        this.accessToken = null;
+    }
+
+    private static expireSession(): void {
+        this.clearSession();
+        this.unauthorizedHandler?.();
+    }
+
+    private static refreshAccessToken(): Promise<string | null> {
+        const version = this.sessionVersion;
+        if (this.refreshRequest?.version === version) {
+            return this.refreshRequest.promise;
+        }
+        const promise = this.api.post("/auth/refresh-token").then((response) => {
+            if (version !== this.sessionVersion) {
+                return null;
+            }
+            if (response.status === 401 || response.status === 403) {
+                this.expireSession();
+                return null;
+            }
+            if (response.status !== 200 || typeof response.data?.accessToken !== "string" || !response.data.accessToken) {
+                throw new Error(`Failed to refresh access token (status ${response.status})`);
+            }
+            this.accessToken = response.data.accessToken;
+            return this.accessToken;
+        }).finally(() => {
+            if (this.refreshRequest?.promise === promise) {
+                this.refreshRequest = null;
+            }
+        });
+        this.refreshRequest = { version, promise };
+        return promise;
+    }
+
     static async test(): Promise<SimpleResponse> {
         try {
             const response = await InternalAPI.api.get('/test');
@@ -53,6 +133,14 @@ export class InternalAPI {
             });
             const { message, error } = response.data;
             const status = response.status;
+            if (status === 200) {
+                if (typeof response.data?.accessToken !== "string" || !response.data.accessToken) {
+                    console.error("Access token missing from login response");
+                    return { error: "Access token missing from login response", status: 500 };
+                }
+                InternalAPI.sessionVersion++;
+                InternalAPI.accessToken = response.data.accessToken;
+            }
             return { message, status, error };
         } catch (error) {
             console.error("Error logging in user:", error);
@@ -60,6 +148,7 @@ export class InternalAPI {
         }
     }
     static async logout(): Promise<SimpleResponse> {
+        InternalAPI.clearSession();
         try {
             const response = await InternalAPI.api.post("/auth/logout");
             const { message, error } = response.data;
@@ -129,9 +218,9 @@ export class InternalAPI {
         }
     }
 
-    static async updateEmail(newEmail: string, emailVerificationCode: string): Promise<UserResponse> {
+    static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string): Promise<UserResponse> {
         try {
-            const response = await InternalAPI.api.put("/user/email", { newEmail, emailVerificationCode });
+            const response = await InternalAPI.api.put("/user/email", { newEmail, emailVerificationCode, currentPassword });
             const { user, message, error } = response.data;
             const status = response.status;
             return { data: user, message, status, error };
@@ -154,8 +243,7 @@ export class InternalAPI {
 
     static async createPasswordReset(email: string): Promise<SimpleResponse> {
         try {
-            const url = config.BASE_URL;
-            const response = await InternalAPI.api.post("/auth/create-password-reset", { email, url });
+            const response = await InternalAPI.api.post("/auth/create-password-reset", { email });
             const { message, error } = response.data;
             const status = response.status;
             return { message, status, error };
@@ -165,9 +253,9 @@ export class InternalAPI {
         }
     }
 
-    static async resetPassword(id: string, newPassword: string): Promise<SimpleResponse> {
+    static async resetPassword(token: string, newPassword: string): Promise<SimpleResponse> {
         try {
-            const response = await InternalAPI.api.post(`/auth/reset-password/${id}`, { newPassword });
+            const response = await InternalAPI.api.post("/auth/reset-password", { token, newPassword });
             const { message, error } = response.data;
             const status = response.status;
             return { message, status, error };

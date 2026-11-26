@@ -1,11 +1,15 @@
 import User from './user.js';
+import { PhotoData } from './photoData.js';
+import { Verification } from './Verification.js';
 import { PhotoMetadataNotFoundError } from '../errors/PhotoMetadataNotFoundError.js';
 import { describe, test, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import {EmailVerificationRepository} from '../../infra/db/repository/EmailVerificationRepository.js';
 import {UserRepository} from '../../infra/db/repository/UserRepository.js';
 import {PasswordResetRepository} from '../../infra/db/repository/PasswordResetRepository.js';
 import {PhotoMetadataRepository} from '../../infra/db/repository/PhotoMetadataRepository.js';
-import type { PasswordReset } from './entity/PasswordReset.js';
+import {RefreshTokenRepository} from '../../infra/db/repository/RefreshTokenRepository.js';
+import { Session } from './session.js';
+import { TokenService } from '../services/tokenService.js';
 import type { EmailVerification } from '../models/entity/EmailVerification.js';
 import {  Role, type User as UserEntity } from './entity/User.js';
 import { Trait } from './entity/PhotoMetadata.js';
@@ -49,11 +53,11 @@ describe('User Model Tests', () => {
     expect(emailCode).toHaveProperty('expiresAt', expect.any(Date));
   };
 
-  const checkPasswordResetCode = (passwordResetCode: PasswordReset, expectedEmail: string) => {
-    expect(passwordResetCode).toBeDefined();
-    expect(passwordResetCode).toHaveProperty('email', expectedEmail);
-    expect(passwordResetCode).toHaveProperty('code', expect.any(String));
-    expect(passwordResetCode).toHaveProperty('expiresAt', expect.any(Date));
+  const createResetToken = async (forEmail: string) => {
+    const result = await Verification.createPasswordResetToken(forEmail);
+    if (!result) throw new Error('Expected a password reset token');
+    expect(result.passwordReset).toMatchObject({ email: forEmail, tokenHash: Verification.hashPasswordResetToken(result.token) });
+    return result;
   };
 
   beforeAll(async () => {
@@ -72,21 +76,21 @@ describe('User Model Tests', () => {
       await cleanUpTestDB();
     });
     test('create email verification code', async () => {
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
     });
     test('Create new email verification code for existing email', async () => {
-      const { emailCode: firstEmailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode: firstEmailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(firstEmailCode, email);
 
-      const { emailCode: secondEmailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode: secondEmailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(secondEmailCode, email);
 
       expect(secondEmailCode.code).not.toBe(firstEmailCode.code);
     });
     test('Fail to create new email for invalid email', async () => {
       const invalidEmail = 'invalidemail';
-      await expect(User.createEmailVerificationCode(invalidEmail)).rejects.toThrow(InvalidEmailError);
+      await expect(Verification.createEmailVerificationCode(invalidEmail)).rejects.toThrow(InvalidEmailError);
     });
   });
 
@@ -95,7 +99,7 @@ describe('User Model Tests', () => {
     beforeEach(async () => {
       // Clean up any existing users and email verification codes before each test
       await cleanUpTestDB();
-      const { emailCode: newEmailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode: newEmailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(newEmailCode, email);
       if(!newEmailCode?.code) {
         throw new Error('Email verification code not created in beforeEach');
@@ -173,7 +177,7 @@ describe('User Model Tests', () => {
       const { user } = await User.createNewUser(username, email, emailCode?.code, password);
       checkUser(user, username, email);
       
-      const { emailCode:newEmailCode } = await User.createEmailVerificationCode("secondEmail@example.com");
+      const { emailCode:newEmailCode } = await Verification.createEmailVerificationCode("secondEmail@example.com");
       checkEmailCode(newEmailCode, "secondEmail@example.com");
 
       if(!newEmailCode?.code) {
@@ -183,7 +187,7 @@ describe('User Model Tests', () => {
       await expect(User.createNewUser(username, newEmailCode.email, newEmailCode.code, password)).rejects.toThrow(UserExistsError);
     });
     test('Fail to create new user with invalid email', async () => {
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
 
       if(!emailCode?.code) {
@@ -197,7 +201,7 @@ describe('User Model Tests', () => {
     beforeEach(async () => {
       // Clean up any existing users and email verification codes before each test
       await cleanUpTestDB();
-      const { emailCode: newEmailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode: newEmailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(newEmailCode, email);
       const { user } = await User.createNewUser(username, email, newEmailCode.code, password);
       checkUser(user, username, email);
@@ -228,7 +232,7 @@ describe('User Model Tests', () => {
     beforeEach(async () => {
       // Clean up any existing test data before each test
       await cleanUpTestDB();
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
       const { user } = await User.createNewUser(username, email, emailCode?.code, password);
       checkUser(user, username, email);
@@ -293,7 +297,7 @@ describe('User Model Tests', () => {
     beforeEach(async () => {
       // Clean up any existing test data before each test
       await cleanUpTestDB();
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
       const { user } = await User.createNewUser(username, email, emailCode?.code, password);
       checkUser(user, username, email)
@@ -307,9 +311,9 @@ describe('User Model Tests', () => {
       expect(jwt).toBeDefined();
       
       const newEmail = 'newemail@example.com';
-      const { emailCode } = await User.createEmailVerificationCode(newEmail);
+      const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
       checkEmailCode(emailCode, newEmail);
-      const { user } = await User.updateEmail(newEmail, emailCode.code, jwt);
+      const { user } = await User.updateEmail(newEmail, emailCode.code, password, jwt);
       checkUser(user, username, newEmail);
       
     });
@@ -318,19 +322,33 @@ describe('User Model Tests', () => {
       expect(jwt).toBeDefined();
 
       const newEmail = 'newemail@example.com';
-      await expect(User.updateEmail(newEmail, '', jwt)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.updateEmail(newEmail, '', password, jwt)).rejects.toThrow(EmailVerificationNotFoundError);
     });
     test('Fail to update email with invalid email verification code', async () => {
       const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
       
       const newEmail = 'newemail@example.com';
-      await expect(User.updateEmail(newEmail, 'invalidcode', jwt)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.updateEmail(newEmail, 'invalidcode', password, jwt)).rejects.toThrow(EmailVerificationNotFoundError);
+    });
+    test.each([
+      ['a wrong', 'Wrong!Password123'],
+      ['an empty', ''],
+    ])('Rejects %s current password without changing the email or using the code', async (_label, currentPassword) => {
+      const { jwt } = await User.createUserAuthentication(username, password);
+      const newEmail = 'newemail@example.com';
+      const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
+
+      await expect(User.updateEmail(newEmail, emailCode.code, currentPassword, jwt)).rejects.toThrow(InvalidPasswordError);
+
+      const { user } = await User.getUser(jwt);
+      expect(user.email).toBe(email);
+      expect(await EmailVerificationRepository.findOneByCodeAndEmail(emailCode.code, newEmail)).not.toBeNull();
     });
   });
   describe('Update Password', () => {
     beforeEach(async () => {
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
       const { user } = await User.createNewUser(username, email, emailCode?.code, password);
       checkUser(user, username, email);
@@ -392,97 +410,125 @@ describe('User Model Tests', () => {
       const { jwt } = await User.createUserAuthentication(username, password);
       expect(jwt).toBeDefined();
 
-      const invalidNewPassword = 'password';
-      await expect(User.updatePassword(password, invalidNewPassword, jwt)).rejects.toThrow(InvalidPasswordError);
+      const invalidNewPassword = 'weak-secret';
+      const error = await User.updatePassword(password, invalidNewPassword, jwt).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(InvalidPasswordError);
+      expect((error as Error).message).not.toContain(invalidNewPassword);
     });
   });
-  describe('Create Password Reset Code', () => {
+  describe('Create Password Reset Token', () => {
     beforeEach(async () => {
-      // Any setup needed before each test in this describe block
       await cleanUpTestDB()
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       await checkEmailCode(emailCode, email);
       const { user } = await User.createNewUser(username, email, emailCode.code, password);
       await checkUser(user, username, email);
     });
     afterEach(async () => {
-      // Any cleanup needed after each test in this describe block
       await cleanUpTestDB();
     });
-    test('Successfully create password reset code', async () => {
-      const { passwordResetCode } = await User.createPasswordResetCode(email);
-      checkPasswordResetCode(passwordResetCode, email);
+    test('Successfully create a password reset token and store only its hash', async () => {
+      const { token, passwordReset } = await createResetToken(email);
+      expect(await PasswordResetRepository.findOneByTokenHash(passwordReset.tokenHash)).toMatchObject({ id: passwordReset.id });
+      expect(await PasswordResetRepository.findOneByTokenHash(token)).toBeNull();
     });
-    test('Fail to create password reset code with invalid email', async () => {
-      await expect(User.createPasswordResetCode('invalidEmail')).rejects.toThrow(InvalidEmailError);
+    test('Fail to create password reset token with invalid, empty or whitespace email', async () => {
+      await expect(Verification.createPasswordResetToken('invalidEmail')).rejects.toThrow(InvalidEmailError);
+      await expect(Verification.createPasswordResetToken('')).rejects.toThrow(InvalidEmailError);
+      await expect(Verification.createPasswordResetToken('   ')).rejects.toThrow(InvalidEmailError);
     });
-    test('Fail to create password reset code for non-existent user email', async () => {
-      await expect(User.createPasswordResetCode('invalid@example.com')).rejects.toThrow(UserNotFoundError);
+    test('Returns null for an email with no account', async () => {
+      await expect(Verification.createPasswordResetToken('invalid@example.com')).resolves.toBeNull();
     });
-    test('Fail to create password reset code with empty email', async () => {
-      await expect(User.createPasswordResetCode('')).rejects.toThrow(InvalidEmailError);
+    test('Creates at most three tokens per account per hour, even for concurrent requests', async () => {
+      const results = await Promise.all(Array.from({ length: 10 }, () => Verification.createPasswordResetToken(email)));
+      expect(results.filter(Boolean)).toHaveLength(3);
+      await expect(Verification.createPasswordResetToken(email)).resolves.toBeNull();
     });
-    test('Fail to create password reset code with whitespace email', async () => {
-      await expect(User.createPasswordResetCode('   ')).rejects.toThrow(InvalidEmailError);
+    test('Allows new tokens again once the hour has passed', async () => {
+      for (let i = 0; i < 3; i++) {
+        const { passwordReset } = await createResetToken(email);
+        await PasswordResetRepository.updateById(passwordReset.id, { createdAt: new Date(Date.now() - 61 * 60_000) });
+      }
+      await createResetToken(email);
     });
   });
   describe('Reset Password', () => {
-    let passwordResetCode: PasswordReset;
+    let resetToken: string;
     beforeEach(async () => {
       await cleanUpTestDB();
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
       const { user: newUser } = await User.createNewUser(username, email, emailCode.code, password);
       checkUser(newUser, username, email);
-      const { passwordResetCode: prc } = await User.createPasswordResetCode(email);
-      checkPasswordResetCode(prc, email);
-      passwordResetCode = prc;
+      ({ token: resetToken } = await createResetToken(email));
     });
     afterEach(async () => {
       await cleanUpTestDB();
     });
-    test('Successfully reset password with valid code', async () => {
-      const { user } = await User.resetPassword('newPassword!123', passwordResetCode.code);
+    test('Successfully reset password with a valid token', async () => {
+      const { user } = await User.resetPassword('newPassword!123', resetToken);
       checkUser(user, username, email);
       const { jwt } = await User.createUserAuthentication(username, 'newPassword!123');
-      expect(jwt).toBeDefined();
-
       const { user: fetchedUser } = await User.getUser(jwt);
       checkUser(fetchedUser, username, email);
     });
-    test('Fail to reset password with invalid code', async () => {
-      await expect(User.resetPassword('newPassword!123', 'invalidCode')).rejects.toThrow(PasswordResetCodeNotFoundError);
+    test('A token works only once, even for concurrent submissions', async () => {
+      const results = await Promise.allSettled([
+        User.resetPassword('newPassword!123', resetToken),
+        User.resetPassword('otherPassword!123', resetToken),
+      ]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      await expect(User.resetPassword('thirdPassword!123', resetToken)).rejects.toThrow(PasswordResetCodeNotFoundError);
     });
-    test('Fail to reset password with empty code', async () => {
+    test('Using one token invalidates the account\'s other outstanding tokens', async () => {
+      const { token: secondToken } = await createResetToken(email);
+      await User.resetPassword('newPassword!123', resetToken);
+      await expect(User.resetPassword('otherPassword!123', secondToken)).rejects.toThrow(PasswordResetCodeNotFoundError);
+    });
+    test('Requesting a new token does not cancel the earlier one', async () => {
+      await createResetToken(email);
+      await expect(User.resetPassword('newPassword!123', resetToken)).resolves.toMatchObject({ user: { email } });
+    });
+    test('Many wrong tokens do not lock the owner out', async () => {
+      const attempts = await Promise.allSettled(Array.from({ length: 50 }, (_, i) =>
+        User.resetPassword('newPassword!123', `wrong-token-${i}`)
+      ));
+      expect(attempts.every((attempt) => attempt.status === 'rejected'
+        && attempt.reason instanceof PasswordResetCodeNotFoundError)).toBe(true);
+      await expect(User.resetPassword('newPassword!123', resetToken)).resolves.toMatchObject({ user: { email } });
+    });
+    test('Rejects an email changed since the reset request without consuming the token', async () => {
+      const user = await UserRepository.findOneByEmail(email);
+      if (!user) throw new Error('Expected the reset user');
+      await UserRepository.updateById(user.id, { email: 'changed@example.com' });
+
+      await expect(User.resetPassword('newPassword!123', resetToken)).rejects.toThrow(PasswordResetCodeNotFoundError);
+      expect(await PasswordResetRepository.findOneByTokenHash(Verification.hashPasswordResetToken(resetToken))).not.toBeNull();
+      expect((await UserRepository.findOneById(user.id))?.password).toBe(user.password);
+    });
+    test('Fail to reset password with an unknown, empty or whitespace token', async () => {
+      await expect(User.resetPassword('newPassword!123', 'invalidToken')).rejects.toThrow(PasswordResetCodeNotFoundError);
       await expect(User.resetPassword('newPassword!123', '')).rejects.toThrow(PasswordResetCodeNotFoundError);
-    });
-    test('Fail to reset password with whitespace code', async () => {
       await expect(User.resetPassword('newPassword!123', '   ')).rejects.toThrow(PasswordResetCodeNotFoundError);
     });
-    test('Fail to reset password with expired code', async () => {
-      // Simulate code expiration
-      passwordResetCode.expiresAt = new Date(Date.now() - 1000); // Set expiration to 1 second in the past
-      const updatedPasswordResetCode = await PasswordResetRepository.updateById(passwordResetCode.id, passwordResetCode);
-      await expect(User.resetPassword('newPassword!123', updatedPasswordResetCode.code)).rejects.toThrow(InvalidPasswordResetCodeError);
-    });
-    test('Fail to reset password with invalid email', async () => {
-      await expect(User.createPasswordResetCode('invalidEmail')).rejects.toThrow(InvalidEmailError);
-    });
-    test('Fail to reset password with non-existent email', async () => {
-      await expect(User.createPasswordResetCode('nonexistent@example.com')).rejects.toThrow(UserNotFoundError);
+    test('Fail to reset password with an expired token', async () => {
+      const row = await PasswordResetRepository.findOneByTokenHash(Verification.hashPasswordResetToken(resetToken));
+      await PasswordResetRepository.updateById(row!.id, { expiresAt: new Date(Date.now() - 1000) });
+      await expect(User.resetPassword('newPassword!123', resetToken)).rejects.toThrow(InvalidPasswordResetCodeError);
     });
     test('Fail to reset password with invalid new password', async () => {
-      await expect(User.resetPassword('password', passwordResetCode.code)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.resetPassword('password', resetToken)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to reset password with same as old password', async () => {
-      await expect(User.resetPassword(password, passwordResetCode.code)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.resetPassword(password, resetToken)).rejects.toThrow(InvalidPasswordError);
     });
   });
   describe('Delete User', () => {
     beforeEach(async () => {
       await cleanUpTestDB();
       
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       checkEmailCode(emailCode, email);
 
       const { user } = await User.createNewUser(username, email, emailCode.code, password);
@@ -496,6 +542,20 @@ describe('User Model Tests', () => {
       expect(jwt).toBeDefined();
       await User.deleteUser(jwt);
       await expect(User.getUser(jwt)).rejects.toThrow(UserNotFoundError);
+    });
+    test("Deleting a user deletes their sessions through the foreign key", async () => {
+      const { jwt } = await User.createUserAuthentication(username, password);
+      const { refreshToken } = await Session.create(TokenService.verifyAccessToken(jwt));
+      const { tokenId } = TokenService.verifyRefreshToken(refreshToken);
+      expect(await RefreshTokenRepository.findOneById(tokenId)).not.toBeNull();
+
+      await User.deleteUser(jwt);
+
+      expect(await RefreshTokenRepository.findOneById(tokenId)).toBeNull();
+      await expect(Session.isActive(refreshToken)).resolves.toBe(false);
+    });
+    test('Rejects a session for a user that does not exist', async () => {
+      await expect(Session.create('00000000-0000-0000-0000-000000000000')).rejects.toThrow();
     });
     test('Fail to delete user with invalid JWT', async () => {
       await expect(User.deleteUser('invalidJWT')).rejects.toThrow(InvalidJWTError);
@@ -520,7 +580,7 @@ describe('User Model Tests', () => {
     beforeEach(async () => {
       await cleanUpTestDB();
 
-      const { emailCode } = await User.createEmailVerificationCode(email);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
       const { user } = await User.createNewUser(username, email, emailCode.code, password);
       checkUser(user, username, email);
     });
@@ -531,7 +591,7 @@ describe('User Model Tests', () => {
     test('Save profile photo metadata', async () => {
       const { jwt } = await User.createUserAuthentication(username, password);
 
-      const { photoMetadata } = await User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+      const { photoMetadata } = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
 
       expect(photoMetadata).toMatchObject({
         filename: 'profile.jpg',
@@ -544,27 +604,27 @@ describe('User Model Tests', () => {
 
     test('Get profile photo metadata', async () => {
       const { jwt } = await User.createUserAuthentication(username, password);
-      const savedPhoto = await User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+      const savedPhoto = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
 
-      const { photoMetadata } = await User.getProfilePhotoMetadata(jwt);
+      const { photoMetadata } = await PhotoData.getProfilePhotoMetadata(jwt);
 
       expect(photoMetadata).toEqual(savedPhoto.photoMetadata);
     });
 
     test('Fail to save profile photo metadata with invalid JWT', async () => {
       await expect(
-        User.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', 'invalidJWT')
+        PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', 'invalidJWT')
       ).rejects.toThrow(InvalidJWTError);
     });
 
     test('Fail to get profile photo metadata when none exists', async () => {
       const { jwt } = await User.createUserAuthentication(username, password);
 
-      await expect(User.getProfilePhotoMetadata(jwt)).rejects.toThrow(PhotoMetadataNotFoundError);
+      await expect(PhotoData.getProfilePhotoMetadata(jwt)).rejects.toThrow(PhotoMetadataNotFoundError);
     });
 
     test('Fail to get profile photo metadata with invalid JWT', async () => {
-      await expect(User.getProfilePhotoMetadata('invalidJWT')).rejects.toThrow(InvalidJWTError);
+      await expect(PhotoData.getProfilePhotoMetadata('invalidJWT')).rejects.toThrow(InvalidJWTError);
     });
   });
 
@@ -576,7 +636,7 @@ describe('User Model Tests', () => {
     let regularUserId: string;
 
     const createUser = async (name: string, mail: string) => {
-      const { emailCode } = await User.createEmailVerificationCode(mail);
+      const { emailCode } = await Verification.createEmailVerificationCode(mail);
       const { user } = await User.createNewUser(name, mail, emailCode.code, password);
       return user;
     };

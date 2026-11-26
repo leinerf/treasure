@@ -2,6 +2,9 @@ import express from "express";
 import bodyParser from "body-parser";
 import { config } from "../../config.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import { apiRateLimit } from "./middleware/rateLimit.js";
+import { securityHeaders } from "./middleware/securityHeaders.js";
 import { static as serveStatic } from "express";
 import authRoutes from "./resources/auth/resource.js";
 import userRoutes from "./resources/user/resource.js";
@@ -14,6 +17,24 @@ if(!config.api_port || !config.api_static_dir || !config.api_img_dir) {
 const app = express();
 const __dirname = path.dirname(import.meta.dirname);
 
+// First, so every response (API, static files, index.html) carries the security headers.
+app.use(securityHeaders);
+
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || config.allowed_origins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+}));
+
+app.use("/api", apiRateLimit);
+
 app.use(serveStatic(path.join(__dirname, config.api_static_dir)));
 
 app.use(bodyParser.json());
@@ -22,7 +43,6 @@ app.use(cookieParser());
 
 app.get("/api/test", async (req, res) => {
     console.log("Test API endpoint hit");
-    console.log(req.cookies.jwt)
     console.log("test db connection")
     const dbConnected = await checkDbConnection();
     if (!dbConnected) {

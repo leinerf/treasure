@@ -22,7 +22,7 @@ const resource = {
             controller: AuthController.createPasswordReset,
         },
         {
-            path: "/reset-password/:id",
+            path: "/reset-password",
             method: "post",
             controller: AuthController.resetPassword,
         },
@@ -35,6 +35,16 @@ const resource = {
             path: "/logout",
             method: "post",
             controller: AuthController.logout,
+        },
+        {
+            path: "/status",
+            method: "get",
+            controller: AuthController.status,
+        },
+        {
+            path: "/refresh-token",
+            method: "post",
+            controller: AuthController.refreshToken,
         }
     ]
 };

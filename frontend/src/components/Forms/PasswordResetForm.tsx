@@ -22,7 +22,7 @@ function PasswordResetForm({onSuccess, onFailure} : {onSuccess?: (message?: stri
             if(status === 200 && onSuccess) {
                 onSuccess(message);
             } else {
-                if(onFailure) onFailure(error || "Failed to create password reset code");
+                if(onFailure) onFailure(error || "Failed to request a password reset link");
             }
         },
         buttonText: "Reset Password"

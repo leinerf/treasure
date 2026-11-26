@@ -7,13 +7,12 @@ import { Role } from '../../../domain/models/entity/User.js'
 import { db, endDbConnection } from '../index.js'
 import { User } from '../schema/Users.js';
 
-const hash = (token: string) => {
+const hash = async (token: string) => {
     try {
         if(!config.salt_rounds){
             return null;
             }
-            const salt = bcrypt.genSaltSync(Number(config.salt_rounds));
-            return bcrypt.hashSync(token, salt);
+            return await bcrypt.hash(token, Number(config.salt_rounds));
     } catch (error) {
         console.error(error);
         return null;
@@ -30,7 +29,7 @@ const generateFakeData = (num: number) => {
 
 const generateFakeUser = async (num: number) => {
     const { username, email, role } = generateFakeData(num);
-    const hashedPassword = hash(faker.internet.password());
+    const hashedPassword = await hash(faker.internet.password());
     if(!hashedPassword){
         return null;
     }

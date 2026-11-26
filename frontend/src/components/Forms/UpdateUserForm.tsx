@@ -15,6 +15,8 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
     const [isEmailValid, setIsEmailValid] = useState(true);
     const [code, setCode] = useState("");
     const [isCodeValid, setIsCodeValid] = useState(true);
+    const [emailChangePassword, setEmailChangePassword] = useState("");
+    const [isEmailChangePasswordValid, setIsEmailChangePasswordValid] = useState(true);
     const [username, setUsername] = useState(user?.username || "");
     const [isUsernameValid, setIsUsernameValid] = useState(true);
     const [oldPassword, setOldPassword] = useState("");
@@ -91,7 +93,12 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
                 // Handle invalid verification code length
                 return;
             }
-            const { data, message, status, error } = await InternalAPI.updateEmail(email, code);
+            if(emailChangePassword === "") {
+                setIsEmailChangePasswordValid(false);
+                return;
+            }
+            const { data, message, status, error } = await InternalAPI.updateEmail(email, code, emailChangePassword);
+            setEmailChangePassword("");
             if (data && data.email === email && status === 200) {
                 authenticate({ email: data.email });
                 if(onSuccess) onSuccess(message);
@@ -195,6 +202,19 @@ function UpdateUserForm({onSuccess, onFailure}: {onSuccess?: (message?: string) 
                             setCode(code);
                             setIsCodeValid(true);
                         }}
+                    />
+                    <PasswordInput
+                        label="Current Password"
+                        name="email-change-password"
+                        id="email-change-password"
+                        value={emailChangePassword}
+                        onChange={(e) => {
+                            setEmailChangePassword(e.target.value);
+                            setIsEmailChangePasswordValid(true);
+                        }}
+                        placeholder="Enter your current password"
+                        validInput={isEmailChangePasswordValid}
+                        errorMessage={["Enter your current password to change your email"]}
                     />
             </Form>)}
             <Form submit={updateUsernameSubmitHandler}>

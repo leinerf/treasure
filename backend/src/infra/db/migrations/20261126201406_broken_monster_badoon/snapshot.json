@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ded1485c-04da-4395-b884-5ea76a57b2d0",
+  "prevIds": [
+    "51febf5f-1353-4864-b70b-a0ee2e696510"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "password_reset_attempt"
+      ],
+      "writes": [
+        "s|tbl|public.password_reset_attempt",
+        "n|tbl|public.password_reset_attempt",
+        "e|tbl|public.password_reset_attempt",
+        "n|rel|public.password_reset_attempt",
+        "n|type|public.password_reset_attempt"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "password_reset",
+        "code"
+      ],
+      "writes": [
+        "s|col|public.password_reset.code",
+        "n|col|public.password_reset.code",
+        "e|col|public.password_reset.code"
+      ],
+      "reads": [
+        "n|tbl|public.password_reset",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"password_reset_attempt\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"password_reset\",\"code\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"password_reset_attempt\",\"id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"password_reset_attempt\",\"user_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"password_reset_attempt\",\"attempted_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"password_reset_attempt_user_time_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"password_reset_attempt\",\"password_reset_attempt_user_id_user_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"password_reset_attempt\",\"password_reset_attempt_pkey\"]"
+    }
+  ]
+}

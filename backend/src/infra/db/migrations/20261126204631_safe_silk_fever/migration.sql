@@ -1,0 +1,1 @@
+CREATE INDEX "refresh_token_user_id_idx" ON "refresh_token" ("user_id");
