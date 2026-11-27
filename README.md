@@ -4,6 +4,9 @@ Treasure is a React and TypeScript application with an Express API and a
 PostgreSQL database. It includes account registration, authentication, profile
 management, and password resets.
 
+How authentication works, why it's built that way, and what's still open is in
+the [authentication design doc](docs/authentication-design.md).
+
 ## Requirements
 
 - Node.js 26 or newer and npm
