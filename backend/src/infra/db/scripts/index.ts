@@ -22,7 +22,7 @@ const hash = async (token: string) => {
 const generateFakeData = (num: number) => {
   return {
     username: faker.internet.username() + '-test-' + num,
-    email: faker.internet.email(),
+    email: faker.internet.email().toLowerCase(),
     role: faker.helpers.arrayElement([Role.User])
   };
 };

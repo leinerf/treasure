@@ -6,6 +6,7 @@ import type { PhotoMetadata } from "../../../../domain/models/entity/PhotoMetada
 import fs from "fs";
 import { InvalidOffsetOrLimitError } from "../../../../domain/errors/InvalidOffsetOrLimitError.js";
 import LoggingService from "../../../../domain/services/loggingService.js";
+import EmailService from "../../../../domain/services/emailService.js";
 import { FileService } from "../../../../domain/services/fileService.js";
 import { ValidationService } from "../../../../domain/services/validationService.js";
 import { config } from "../../../../config.js";
@@ -40,6 +41,7 @@ class UserController {
         await Session.revokeAll(user.id);
         const { refreshToken } = await Session.create(user.id);
         setRefreshCookie(res, refreshToken);
+        EmailService.sendInBackground(EmailService.sendPasswordChangedEmail(user.email), `password changed notice for user ${user.id}`);
 
         LoggingService.info(`Password updated successfully for user with id: ${user.id}`);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Password updated successfully" });

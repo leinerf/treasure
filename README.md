@@ -87,9 +87,16 @@ detection.
 The admin user-list endpoint accepts a page `limit` from 1 to 100; larger
 limits are rejected with a 400 response.
 
+Emails are stored and compared in lowercase with surrounding spaces removed, so
+`Alice@Example.com` and `alice@example.com` are the same account. A database
+check constraint rejects any email that is not lowercase; the migration that adds
+it lowercases existing emails and stops if two accounts differ only by case.
+
 Password resets use emailed links. Requesting a reset always returns the same
 response, whether or not an account uses the email, so the endpoint does not
-reveal which emails are registered. For an existing account the backend emails
+reveal which emails are registered. The response is sent before the account is
+looked up, so existing and unknown emails also answer equally fast. Each IP
+address may request 5 resets per hour. For an existing account the backend emails
 a link to `APP_BASE_URL/password-reset#token=...`, built from its own
 configuration rather than the request. The token is 256 bits of randomness and
 only its SHA-256 hash is stored in the `password_reset` table. It sits in the
@@ -105,6 +112,16 @@ requests get the same response and send nothing. Because tokens cannot be
 guessed, wrong submissions are not counted per account and cannot lock the owner
 out; the API-wide per-IP limit below still applies. Reset codes issued before
 the link-token migration no longer work and must be requested again.
+
+After a password is reset or changed, the account's email receives a notice that
+links to the reset page, so a change the owner didn't make doesn't go unnoticed.
+Notices and reset emails are sent without making the request wait; a failed send
+is logged with the user's id, never their email address.
+
+Once an hour, and when the server starts, expired rows are deleted from
+`refresh_token`, `password_reset` and `email_verification`. Only rows past their
+`expires_at` are removed: rotated refresh tokens are kept until they expire,
+because refresh token reuse detection needs them.
 
 API routes allow 100 requests per IP address per 15 minutes; exceeding the
 limit returns HTTP 429 with a `Retry-After` header. The limit is stored in

@@ -5,6 +5,7 @@ import { PhotoData } from "../../../../domain/models/photoData.js";
 import { FileService } from "../../../../domain/services/fileService.js";
 import { Trait } from "../../../../domain/models/entity/PhotoMetadata.js";
 import User from "../../../../domain/models/user.js";
+import EmailService from "../../../../domain/services/emailService.js";
 import { Session } from "../../../../domain/models/session.js";
 import { Role } from "../../../../domain/models/entity/User.js";
 import { InvalidOffsetOrLimitError } from "../../../../domain/errors/InvalidOffsetOrLimitError.js";
@@ -19,6 +20,9 @@ vi.mock("../../../../domain/services/fileService.js", () => ({
     FileService: { uploadToAWS: vi.fn(), getPhotoUrlFromAWS: vi.fn() }
 }));
 vi.mock("../../../../domain/services/loggingService.js", () => ({ default: { info: vi.fn() } }));
+vi.mock("../../../../domain/services/emailService.js", () => ({
+    default: { sendPasswordChangedEmail: vi.fn(), sendInBackground: vi.fn() }
+}));
 vi.mock("../../../../domain/models/session.js", () => ({
     Session: { create: vi.fn(), revokeAll: vi.fn() }
 }));
@@ -110,6 +114,8 @@ describe("UserController sessions", () => {
         expect(res.cookie).toHaveBeenCalledWith("refreshToken", "new-refresh-token",
             expect.objectContaining({ httpOnly: true, path: "/api/auth" }));
         expect(res.status).toHaveBeenCalledWith(200);
+        expect(EmailService.sendPasswordChangedEmail).toHaveBeenCalledWith(user.email);
+        expect(EmailService.sendInBackground).toHaveBeenCalledWith(undefined, "password changed notice for user user-id");
     });
 
     test("revokes the sessions of a user an admin deletes", async () => {

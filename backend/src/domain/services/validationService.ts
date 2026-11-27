@@ -6,6 +6,14 @@ export class ValidationService {
         return !!username && regexConfig.username.regex.test(username);
     }
 
+    /**
+     * The form every email is stored and compared in: trimmed and lowercased, so
+     * Alice@Example.com and alice@example.com are the same account. Non-strings become "".
+     */
+    public static normalizeEmail(email: unknown): string {
+        return typeof email === "string" ? email.trim().toLowerCase() : "";
+    }
+
     public static isValidEmail(email: string): boolean {
         return !!email && regexConfig.email.regex.test(email);
     }

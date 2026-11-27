@@ -78,4 +78,11 @@ describe("ValidationService", () => {
             expect(ValidationService.isExpired(new Date(now.getTime() + 1))).toBe(false);
         });
     });
+
+    test("normalizes emails by trimming and lowercasing, and turns non-strings into an empty string", () => {
+        expect(ValidationService.normalizeEmail("  Alice@Example.COM ")).toBe("alice@example.com");
+        expect(ValidationService.normalizeEmail("bob@example.com")).toBe("bob@example.com");
+        expect(ValidationService.normalizeEmail(undefined)).toBe("");
+        expect(ValidationService.normalizeEmail({ $ne: "" })).toBe("");
+    });
 });

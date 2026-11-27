@@ -40,6 +40,12 @@ export class RefreshTokenRepository extends AbstractRefreshTokenRepository {
         await db.delete(RefreshToken).where(and(eq(RefreshToken.userId, userId), lt(RefreshToken.expiresAt, now)));
     }
 
+    /** Deletes rows past expires_at; returns how many were deleted. Only expired rows: rotated but unexpired rows are kept, because reuse detection needs them */
+    public static override async deleteExpired(now: Date): Promise<number> {
+        const deleted = await db.delete(RefreshToken).where(lt(RefreshToken.expiresAt, now)).returning({ id: RefreshToken.id });
+        return deleted.length;
+    }
+
     public static override async deleteAll(): Promise<void> {
         await db.delete(RefreshToken);
     }

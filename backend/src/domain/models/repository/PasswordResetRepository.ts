@@ -21,4 +21,9 @@ export class PasswordResetRepository {
     public static async deleteAll(): Promise<void> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
+    /** Deletes rows whose expires_at is before `now`; returns how many were deleted. */
+    public static async deleteExpired(now: Date): Promise<number> {
+        throw new Error("Method not implemented.");
+    }
 }

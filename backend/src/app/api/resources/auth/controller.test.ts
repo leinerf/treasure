@@ -4,7 +4,6 @@ import AuthController, { PASSWORD_RESET_REQUESTED_MESSAGE } from "./controller.j
 import User from "../../../../domain/models/user.js";
 import { Verification } from "../../../../domain/models/Verification.js";
 import EmailService from "../../../../domain/services/emailService.js";
-import LoggingService from "../../../../domain/services/loggingService.js";
 import { TokenService } from "../../../../domain/services/tokenService.js";
 import { UserNotFoundError } from "../../../../domain/errors/UserNotFoundError.js";
 import { Role } from "../../../../domain/models/entity/User.js";
@@ -21,7 +20,10 @@ vi.mock("../../../../domain/models/Verification.js", () => ({
     Verification: { createEmailVerificationCode: vi.fn(), createPasswordResetToken: vi.fn() }
 }));
 vi.mock("../../../../domain/services/emailService.js", () => ({
-    default: { sendVerificationEmail: vi.fn(), sendPasswordResetEmail: vi.fn() }
+    default: {
+        sendVerificationEmail: vi.fn(), sendPasswordResetEmail: vi.fn(), sendPasswordChangedEmail: vi.fn(async () => undefined),
+        sendInBackground: vi.fn((send: Promise<void>) => { send.catch(() => undefined); })
+    }
 }));
 vi.mock("../../../../domain/services/loggingService.js", () => ({ default: { info: vi.fn(), error: vi.fn() } }));
 vi.mock("../../../../domain/models/session.js", () => ({
@@ -61,17 +63,33 @@ describe("AuthController tokens", () => {
             id: "reset-id", userId: "user-id", email, tokenHash: "hash", createdAt: new Date(), expiresAt: new Date()
         };
 
-        test("emails the reset token for an existing account", async () => {
+        /** The background work the controller handed to sendInBackground, for tests to await. */
+        const backgroundWork = (): Promise<void> => vi.mocked(EmailService.sendInBackground).mock.calls.at(-1)![0];
+
+        test("emails the reset token for an existing account, after responding", async () => {
             vi.mocked(Verification.createPasswordResetToken).mockResolvedValueOnce({ token: "reset-token", passwordReset });
             vi.mocked(EmailService.sendPasswordResetEmail).mockResolvedValueOnce(undefined);
             const res = response();
 
-            await AuthController.createPasswordReset({ body: { email } } as Request, res as unknown as Response);
+            await AuthController.createPasswordReset({ body: { email: "  Test@Example.com " } } as Request, res as unknown as Response);
+            expect(res.json).toHaveBeenCalledWith({ message: PASSWORD_RESET_REQUESTED_MESSAGE });
+            await backgroundWork();
 
             expect(Verification.createPasswordResetToken).toHaveBeenCalledWith(email);
             expect(EmailService.sendPasswordResetEmail).toHaveBeenCalledWith(email, "reset-token");
             expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test("responds before looking the account up, so timing doesn't reveal whether it exists", async () => {
+            let finishLookup: (value: null) => void = () => undefined;
+            vi.mocked(Verification.createPasswordResetToken).mockReturnValueOnce(new Promise((resolve) => { finishLookup = resolve; }));
+            const res = response();
+
+            await AuthController.createPasswordReset({ body: { email } } as Request, res as unknown as Response);
+
             expect(res.json).toHaveBeenCalledWith({ message: PASSWORD_RESET_REQUESTED_MESSAGE });
+            finishLookup(null);
+            await backgroundWork();
         });
 
         test("gives the same response for an unknown or rate-limited email and sends nothing", async () => {
@@ -79,22 +97,31 @@ describe("AuthController tokens", () => {
             const res = response();
 
             await AuthController.createPasswordReset({ body: { email } } as Request, res as unknown as Response);
+            await backgroundWork();
 
             expect(EmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
             expect(res.status).toHaveBeenCalledWith(200);
             expect(res.json).toHaveBeenCalledWith({ message: PASSWORD_RESET_REQUESTED_MESSAGE });
         });
 
-        test("does not wait for or expose email delivery failures", async () => {
+        test("reports a failed send with the user id, not the email address", async () => {
             vi.mocked(Verification.createPasswordResetToken).mockResolvedValueOnce({ token: "reset-token", passwordReset });
             vi.mocked(EmailService.sendPasswordResetEmail).mockRejectedValueOnce(new Error("SMTP down"));
             const res = response();
 
             await AuthController.createPasswordReset({ body: { email } } as Request, res as unknown as Response);
-            await new Promise((resolve) => setImmediate(resolve));
 
             expect(res.json).toHaveBeenCalledWith({ message: PASSWORD_RESET_REQUESTED_MESSAGE });
-            expect(LoggingService.error).toHaveBeenCalledWith(expect.objectContaining({ message: "SMTP down" }));
+            const failure = await backgroundWork().catch((error: unknown) => error);
+            expect((failure as Error).message).toBe("for user user-id: SMTP down");
+            expect((failure as Error).message).not.toContain(email);
+        });
+
+        test("rejects a malformed email with 400 before doing any work", async () => {
+            const res = response();
+            await AuthController.createPasswordReset({ body: { email: "not-an-email" } } as Request, res as unknown as Response);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(EmailService.sendInBackground).not.toHaveBeenCalled();
         });
 
         test("rejects a request without an email", async () => {
@@ -240,6 +267,7 @@ describe("AuthController tokens", () => {
         await AuthController.resetPassword(req as Request, res as unknown as Response);
         expect(User.resetPassword).toHaveBeenCalledWith("New!12345", "reset-token");
         expect(Session.revokeAll).toHaveBeenCalledWith("user-id");
+        expect(EmailService.sendPasswordChangedEmail).toHaveBeenCalledWith(user.email);
         expect(res.status).toHaveBeenCalledWith(200);
     });
 

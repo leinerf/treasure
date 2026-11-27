@@ -1,6 +1,7 @@
 import AuthController from "./controller.js";
 import { Router } from "express";
 import { createRoutes } from "../util/index.js";
+import { passwordResetRequestLimit } from "../../middleware/rateLimit.js";
 
 const router = Router();
 const resource = {
@@ -20,6 +21,7 @@ const resource = {
             path: "/create-password-reset",
             method: "post",
             controller: AuthController.createPasswordReset,
+            middlewares: [passwordResetRequestLimit],
         },
         {
             path: "/reset-password",

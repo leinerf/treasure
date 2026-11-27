@@ -25,6 +25,7 @@ import { InvalidQueryError } from "../errors/InvalidQueryError.js";
 
 class User {
     public static async createNewUser(username: string, email: string, emailVerificationCode: string, password: string): Promise<{ user: UserEntity }> {
+        email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidUsername(username)){
             throw new InvalidUsernameError("Invalid username format: " + username);
         }
@@ -164,6 +165,7 @@ class User {
     }
     
     public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, jwt: string): Promise<{ user: UserEntity }> {
+        newEmail = ValidationService.normalizeEmail(newEmail);
         const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){

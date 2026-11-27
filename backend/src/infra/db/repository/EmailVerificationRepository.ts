@@ -51,6 +51,12 @@ export class EmailVerificationRepository extends AbstractEmailVerificationReposi
     public static override async deleteById(id: string): Promise<void> {
         await db.delete(EmailVerification).where(eq(EmailVerification.id, id));
     }
+    /** Deletes rows past expires_at; returns how many were deleted. */
+    public static override async deleteExpired(now: Date): Promise<number> {
+        const deleted = await db.delete(EmailVerification).where(lt(EmailVerification.expiresAt, now)).returning({ id: EmailVerification.id });
+        return deleted.length;
+    }
+
     public static override async deleteAll(): Promise<void> {
         await db.delete(EmailVerification);
     }

@@ -3,7 +3,7 @@ import { PasswordResetRepository as AbstractPasswordResetRepository } from "../.
 import { PasswordReset } from "../schema/PasswordReset.js";
 import { User } from "../schema/Users.js";
 import { db } from "../index.js";
-import { and, count, eq, gt, lte } from "drizzle-orm";
+import { and, count, eq, gt, lt, lte } from "drizzle-orm";
 
 export class PasswordResetRepository extends AbstractPasswordResetRepository {
     public static override async findOneByTokenHash(tokenHash: string): Promise<PasswordResetEntity | null> {
@@ -46,6 +46,12 @@ export class PasswordResetRepository extends AbstractPasswordResetRepository {
 
     public static override async deleteById(id: string): Promise<void> {
         await db.delete(PasswordReset).where(eq(PasswordReset.id, id));
+    }
+
+    /** Deletes rows past expires_at; returns how many were deleted. */
+    public static override async deleteExpired(now: Date): Promise<number> {
+        const deleted = await db.delete(PasswordReset).where(lt(PasswordReset.expiresAt, now)).returning({ id: PasswordReset.id });
+        return deleted.length;
     }
 
     public static override async deleteAll(): Promise<void> {

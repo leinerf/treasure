@@ -15,6 +15,7 @@ const PASSWORD_RESET_EMAIL_WINDOW_MS = 60 * 60 * 1000;
 
 export class Verification {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
+        email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidEmail(email)){
             throw new InvalidEmailError("Invalid email format: " + email);
         }
@@ -38,6 +39,7 @@ export class Verification {
      * resets cannot cancel the link the account owner is about to open.
      */
     public static async createPasswordResetToken(email: string): Promise<{ token: string; passwordReset: PasswordReset } | null> {
+        email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidEmail(email)){
             throw new InvalidEmailError("Invalid email format");
         }

@@ -2,6 +2,7 @@ import { type Request, type Response } from "express";
 import User from "../../../../domain/models/user.js";
 import { Verification } from "../../../../domain/models/Verification.js";
 import EmailService from "../../../../domain/services/emailService.js";
+import { ValidationService } from "../../../../domain/services/validationService.js";
 import LoggingService from "../../../../domain/services/loggingService.js";
 import { Session } from "../../../../domain/models/session.js";
 import { TokenService } from "../../../../domain/services/tokenService.js";
@@ -15,7 +16,7 @@ class AuthController {
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
         const { email } = req.body;
         const { emailCode } = await Verification.createEmailVerificationCode(email);
-        await EmailService.sendVerificationEmail(email, emailCode.code);  
+        await EmailService.sendVerificationEmail(emailCode.email, emailCode.code);
         
         return res.status(200).json({ message: "Verification email sent successfully" });
     }
@@ -103,19 +104,29 @@ class AuthController {
     }
 
     public static async createPasswordReset(req: Request, res: Response): Promise<Response> {
-        const { email } = req.body ?? {};
-        if (typeof email !== "string") {
-            return res.status(400).json({ error: "Email is required" });
+        const email = ValidationService.normalizeEmail(req.body?.email);
+        if (!ValidationService.isValidEmail(email)) {
+            return res.status(400).json({ error: "Enter a valid email address" });
         }
-        const reset = await Verification.createPasswordResetToken(email);
-        if (reset) {
-            // Not awaited: the response must not take longer when the account exists.
-            EmailService.sendPasswordResetEmail(email, reset.token).catch((error: unknown) => {
-                LoggingService.error(error);
-            });
-        }
+        // Everything that depends on whether the account exists (the lookup, the token, the
+        // email) runs after the response, so existing and unknown emails answer equally fast.
+        EmailService.sendInBackground(AuthController.issuePasswordReset(email), "password reset link");
         // Same response whether or not the email has an account or hit the hourly email limit.
         return res.status(200).json({ message: PASSWORD_RESET_REQUESTED_MESSAGE });
+    }
+
+    /** Creates a reset token and emails the link, if the email has an account under its hourly cap. */
+    private static async issuePasswordReset(email: string): Promise<void> {
+        const reset = await Verification.createPasswordResetToken(email);
+        if (!reset) {
+            return;
+        }
+        try {
+            await EmailService.sendPasswordResetEmail(reset.passwordReset.email, reset.token);
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            throw new Error(`for user ${reset.passwordReset.userId}: ${reason}`);
+        }
     }
 
     public static async resetPassword(req: Request, res: Response): Promise<Response> {
@@ -125,6 +136,7 @@ class AuthController {
         }
         const { user } = await User.resetPassword(newPassword, token);
         await Session.revokeAll(user.id);
+        EmailService.sendInBackground(EmailService.sendPasswordChangedEmail(user.email), `password changed notice for user ${user.id}`);
 
         LoggingService.info(`Password reset successfully for user with id: ${user.id}`);
         return res.status(200).json({ message: "Password reset successfully" });

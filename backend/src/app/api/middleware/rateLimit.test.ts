@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import express from "express";
 import { describe, expect, test, vi } from "vitest";
-import { apiRateLimit } from "./rateLimit.js";
+import { apiRateLimit, passwordResetRequestLimit } from "./rateLimit.js";
 
 describe("API rate limit", () => {
     test("limits API requests per IP for 15 minutes without limiting non-API routes", async () => {
@@ -34,6 +34,30 @@ describe("API rate limit", () => {
             expect((await fetch(`${base}/api/test`)).status).toBe(200);
         } finally {
             vi.useRealTimers();
+            await new Promise<void>((resolve, reject) => {
+                server.close((error) => error ? reject(error) : resolve());
+            });
+        }
+    });
+
+    test("limits password reset requests to 5 per IP per hour", async () => {
+        const app = express();
+        app.post("/reset", passwordResetRequestLimit, (_req, res) => res.sendStatus(200));
+        const server = app.listen(0, "127.0.0.1");
+        try {
+            await once(server, "listening");
+            const address = server.address();
+            if (!address || typeof address === "string") {
+                throw new Error("Expected a TCP server address");
+            }
+            const url = `http://127.0.0.1:${address.port}/reset`;
+            for (let i = 0; i < 5; i++) {
+                expect((await fetch(url, { method: "POST" })).status).toBe(200);
+            }
+            const blocked = await fetch(url, { method: "POST" });
+            expect(blocked.status).toBe(429);
+            expect(await blocked.json()).toEqual({ error: "Too many password reset requests, please try again later." });
+        } finally {
             await new Promise<void>((resolve, reject) => {
                 server.close((error) => error ? reject(error) : resolve());
             });

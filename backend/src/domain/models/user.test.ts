@@ -10,6 +10,7 @@ import {PhotoMetadataRepository} from '../../infra/db/repository/PhotoMetadataRe
 import {RefreshTokenRepository} from '../../infra/db/repository/RefreshTokenRepository.js';
 import { Session } from './session.js';
 import { TokenService } from '../services/tokenService.js';
+import { CleanupService } from '../services/cleanupService.js';
 import type { EmailVerification } from '../models/entity/EmailVerification.js';
 import {  Role, type User as UserEntity } from './entity/User.js';
 import { Trait } from './entity/PhotoMetadata.js';
@@ -178,7 +179,8 @@ describe('User Model Tests', () => {
       checkUser(user, username, email);
       
       const { emailCode:newEmailCode } = await Verification.createEmailVerificationCode("secondEmail@example.com");
-      checkEmailCode(newEmailCode, "secondEmail@example.com");
+      // Emails are stored lowercase.
+      checkEmailCode(newEmailCode, "secondemail@example.com");
 
       if(!newEmailCode?.code) {
         throw new Error('Email verification code not created');
@@ -414,6 +416,74 @@ describe('User Model Tests', () => {
       const error = await User.updatePassword(password, invalidNewPassword, jwt).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(InvalidPasswordError);
       expect((error as Error).message).not.toContain(invalidNewPassword);
+    });
+  });
+  describe("CleanupService (database)", () => {
+    const HOUR = 60 * 60 * 1000;
+    beforeEach(async () => { await RefreshTokenRepository.deleteAll(); await cleanUpTestDB(); });
+    afterEach(async () => { await RefreshTokenRepository.deleteAll(); await cleanUpTestDB(); });
+
+    test("removes expired rows and keeps live ones, including rotated but unexpired refresh tokens", async () => {
+        const user = await UserRepository.save({ username: "cleanupuser", email: "cleanup@example.com", password: "hash", role: Role.User });
+        if (!user) throw new Error("Expected a user");
+        const past = new Date(Date.now() - HOUR);
+        const future = new Date(Date.now() + HOUR);
+
+        const expiredSession = await RefreshTokenRepository.save({ userId: user.id, expiresAt: past, rotatedAt: null });
+        const rotatedSession = await RefreshTokenRepository.save({ userId: user.id, expiresAt: future, rotatedAt: past });
+        const activeSession = await RefreshTokenRepository.save({ userId: user.id, expiresAt: future, rotatedAt: null });
+
+        // Live link first: saving a link also clears that user's expired ones, so the expired
+        // link must be saved last to still be there when the cleanup runs.
+        const liveReset = await PasswordResetRepository.saveIfUnderLimit(
+            { userId: user.id, email: user.email, tokenHash: "b".repeat(64), expiresAt: future }, 10, HOUR);
+        const expiredReset = await PasswordResetRepository.saveIfUnderLimit(
+            { userId: user.id, email: user.email, tokenHash: "a".repeat(64), expiresAt: past }, 10, HOUR);
+
+        await EmailVerificationRepository.save({ email: "expired@example.com", code: "111111", expiresAt: past });
+        await EmailVerificationRepository.save({ email: "live@example.com", code: "222222", expiresAt: future });
+
+        const removed = await CleanupService.removeExpiredRows();
+
+        expect(removed).toEqual({ refreshTokens: 1, passwordResets: 1, emailVerifications: 1 });
+        expect(await RefreshTokenRepository.findOneById(expiredSession.id)).toBeNull();
+        // Kept: reuse detection needs rotated refresh tokens until they expire.
+        expect(await RefreshTokenRepository.findOneById(rotatedSession.id)).not.toBeNull();
+        expect(await RefreshTokenRepository.findOneById(activeSession.id)).not.toBeNull();
+        expect(await PasswordResetRepository.findOneByTokenHash(expiredReset!.tokenHash)).toBeNull();
+        expect(await PasswordResetRepository.findOneByTokenHash(liveReset!.tokenHash)).not.toBeNull();
+        expect(await EmailVerificationRepository.findOneByEmail("expired@example.com")).toBeNull();
+        expect(await EmailVerificationRepository.findOneByEmail("live@example.com")).not.toBeNull();
+    });
+
+    test("does nothing when nothing has expired", async () => {
+        await expect(CleanupService.removeExpiredRows()).resolves.toEqual({ refreshTokens: 0, passwordResets: 0, emailVerifications: 0 });
+    });
+});
+  describe('Email normalization', () => {
+    beforeEach(async () => { await cleanUpTestDB(); });
+    afterEach(async () => { await cleanUpTestDB(); });
+
+    test('stores emails lowercase and finds the account whatever case is typed later', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode('  Mixed.Case@Example.COM ');
+      expect(emailCode.email).toBe('mixed.case@example.com');
+      const { user } = await User.createNewUser('mixeduser', 'Mixed.Case@example.com', emailCode.code, password);
+      expect(user.email).toBe('mixed.case@example.com');
+
+      const reset = await Verification.createPasswordResetToken('MIXED.CASE@EXAMPLE.COM');
+      expect(reset?.passwordReset.userId).toBe(user.id);
+    });
+
+    test('rejects a second account whose email differs only by case', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      await User.createNewUser(username, email, emailCode.code, password);
+      const { emailCode: upperCode } = await Verification.createEmailVerificationCode(email.toUpperCase());
+      await expect(User.createNewUser('otheruser', email.toUpperCase(), upperCode.code, password)).rejects.toThrow(UserExistsError);
+    });
+
+    test('the database refuses an email that is not lowercase', async () => {
+      await expect(UserRepository.save({ username: 'rawuser', email: 'Raw@Example.com', password: 'hash', role: Role.User }))
+        .rejects.toThrow();
     });
   });
   describe('Create Password Reset Token', () => {
