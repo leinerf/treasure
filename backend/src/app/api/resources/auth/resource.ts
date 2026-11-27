@@ -1,7 +1,7 @@
 import AuthController from "./controller.js";
 import { Router } from "express";
 import { createRoutes } from "../util/index.js";
-import { loginFailureLimit, passwordResetRequestLimit } from "../../middleware/rateLimit.js";
+import { loginFailureLimit, passwordResetRequestLimit, verificationEmailRequestLimit } from "../../middleware/rateLimit.js";
 
 const router = Router();
 const resource = {
@@ -11,6 +11,7 @@ const resource = {
             path: "/create-verification-email",
             method: "post",
             controller: AuthController.createVerificationEmail,
+            middlewares: [verificationEmailRequestLimit],
         },
         {
             path: "/register",

@@ -11,6 +11,10 @@ import {RefreshTokenRepository} from '../../infra/db/repository/RefreshTokenRepo
 import { Session } from './session.js';
 import { TokenService } from '../services/tokenService.js';
 import { CleanupService } from '../services/cleanupService.js';
+import { VerificationEmailLimitError } from '../errors/VerificationEmailLimitError.js';
+import { db } from '../../infra/db/index.js';
+import { EmailVerification as EmailVerificationTable } from '../../infra/db/schema/EmailVerification.js';
+import { eq } from 'drizzle-orm';
 import type { EmailVerification } from '../models/entity/EmailVerification.js';
 import {  Role, type User as UserEntity } from './entity/User.js';
 import { Trait } from './entity/PhotoMetadata.js';
@@ -107,7 +111,8 @@ describe('User Model Tests', () => {
       }
       await expect(User.createNewUser(username, email, wrongCode(emailCode.code), password))
         .rejects.toThrow('Too many incorrect codes. Request a new verification code.');
-      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.createNewUser(username, email, emailCode.code, password))
+        .rejects.toThrow('Too many incorrect codes. Request a new verification code.');
 
       const { emailCode: freshCode } = await Verification.createEmailVerificationCode(email);
       await expect(User.createNewUser(username, email, freshCode.code, password)).resolves.toMatchObject({ user: { email } });
@@ -127,8 +132,56 @@ describe('User Model Tests', () => {
       const results = await Promise.allSettled(guesses.map((code, i) => User.createNewUser(`racer${i}`, email, code, password)));
 
       expect(results.every((result) => result.status === 'rejected')).toBe(true);
-      expect(await EmailVerificationRepository.findOneByEmail(email)).toBeNull();
-      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.createNewUser(username, email, emailCode.code, password))
+        .rejects.toThrow('Too many incorrect codes. Request a new verification code.');
+    });
+  });
+  describe('Verification email limit', () => {
+    beforeEach(async () => { await cleanUpTestDB(); });
+    afterEach(async () => { await cleanUpTestDB(); });
+
+    test('Sends at most 3 codes to one address per hour', async () => {
+      for (let i = 0; i < 3; i++) {
+        await Verification.createEmailVerificationCode(email);
+      }
+      await expect(Verification.createEmailVerificationCode(email)).rejects.toThrow(VerificationEmailLimitError);
+      await expect(Verification.createEmailVerificationCode('someone.else@example.com')).resolves.toBeDefined();
+    });
+
+    test('Holds even when many requests arrive at once', async () => {
+      const results = await Promise.allSettled(Array.from({ length: 10 }, () => Verification.createEmailVerificationCode(email)));
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(3);
+    });
+
+    test("Expiring or locking a code doesn't reset the count, and neither does the cleanup job", async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      await Verification.createEmailVerificationCode(email);
+      const { emailCode: third } = await Verification.createEmailVerificationCode(email);
+      for (let i = 0; i < 5; i++) {
+        await User.createNewUser(username, email, third.code === '000000' ? '111111' : '000000', password).catch(() => undefined);
+      }
+      await EmailVerificationRepository.updateById(emailCode.id, { ...third, expiresAt: new Date(Date.now() - 1000) });
+      await CleanupService.removeExpiredRows();
+
+      await expect(Verification.createEmailVerificationCode(email)).rejects.toThrow(VerificationEmailLimitError);
+    });
+
+    test('Allows codes again once the hour has passed', async () => {
+      for (let i = 0; i < 3; i++) {
+        await Verification.createEmailVerificationCode(email);
+      }
+      await db.update(EmailVerificationTable).set({ sendWindowStartedAt: new Date(Date.now() - 61 * 60 * 1000) })
+        .where(eq(EmailVerificationTable.email, email));
+      await expect(Verification.createEmailVerificationCode(email)).resolves.toBeDefined();
+    });
+
+    test('A new code resets the guess count', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      for (let i = 0; i < 5; i++) {
+        await User.createNewUser(username, email, emailCode.code === '000000' ? '111111' : '000000', password).catch(() => undefined);
+      }
+      const { emailCode: fresh } = await Verification.createEmailVerificationCode(email);
+      await expect(User.createNewUser(username, email, fresh.code, password)).resolves.toMatchObject({ user: { email } });
     });
   });
   describe('Create New User Tests', () => {

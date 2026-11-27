@@ -38,3 +38,15 @@ export const loginFailureLimit = rateLimit({
     legacyHeaders: false,
     message: { error: "Too many failed login attempts. Try again later." }
 });
+
+/**
+ * Verification email requests per IP: 10 an hour, on top of the cap of 3 emails per address.
+ * Stops one machine from sending codes to many addresses through this server.
+ */
+export const verificationEmailRequestLimit = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 10,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: { error: "Too many verification emails requested, please try again later." }
+});

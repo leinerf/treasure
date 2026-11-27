@@ -52,9 +52,47 @@ export class EmailVerificationRepository extends AbstractEmailVerificationReposi
         await db.delete(EmailVerification).where(eq(EmailVerification.id, id));
     }
     /** Deletes rows past expires_at; returns how many were deleted. */
-    public static override async deleteExpired(now: Date): Promise<number> {
-        const deleted = await db.delete(EmailVerification).where(lt(EmailVerification.expiresAt, now)).returning({ id: EmailVerification.id });
+    /**
+     * Deletes expired codes whose send window has also ended. A row inside its window is kept even
+     * after its code expires, so cleanup can't reset how many emails the address has been sent.
+     */
+    public static override async deleteExpired(now: Date, sendWindowMs: number = 0): Promise<number> {
+        const deleted = await db.delete(EmailVerification).where(and(
+            lt(EmailVerification.expiresAt, now),
+            lt(EmailVerification.sendWindowStartedAt, new Date(now.getTime() - sendWindowMs))
+        )).returning({ id: EmailVerification.id });
         return deleted.length;
+    }
+
+    /**
+     * One statement, so simultaneous requests can't both get under the limit: inserts the code, or
+     * on an existing row replaces the code, resets attempts and counts the send, but only while the
+     * address is under `limit` sends in the current window. A window older than `windowMs` restarts.
+     */
+    public static override async issueCodeIfUnderLimit(
+        entity: Pick<EmailVerificationEntity, "email" | "code" | "expiresAt">, limit: number, windowMs: number
+    ): Promise<EmailVerificationEntity | null> {
+        const now = new Date();
+        // Timestamps go through the column's encoder, the same way drizzle stores them, so comparisons
+        // in raw SQL aren't shifted by the database session's time zone.
+        const windowStart = sql.param(new Date(now.getTime() - windowMs), EmailVerification.sendWindowStartedAt);
+        const nowParam = sql.param(now, EmailVerification.sendWindowStartedAt);
+        const windowIsCurrent = sql`${EmailVerification.sendWindowStartedAt} > ${windowStart}`;
+        const result = await db.insert(EmailVerification)
+            .values({ ...entity, attempts: 0, sendCount: 1, sendWindowStartedAt: now })
+            .onConflictDoUpdate({
+                target: EmailVerification.email,
+                set: {
+                    code: entity.code,
+                    expiresAt: entity.expiresAt,
+                    attempts: 0,
+                    sendCount: sql`CASE WHEN ${windowIsCurrent} THEN ${EmailVerification.sendCount} + 1 ELSE 1 END`,
+                    sendWindowStartedAt: sql`CASE WHEN ${windowIsCurrent} THEN ${EmailVerification.sendWindowStartedAt} ELSE ${nowParam} END`,
+                },
+                setWhere: sql`NOT (${windowIsCurrent}) OR ${EmailVerification.sendCount} < ${limit}`,
+            })
+            .returning(EmailVerificationRepository.buildReturning());
+        return result[0] ?? null;
     }
 
     public static override async recordAttempt(email: string): Promise<{ verification: EmailVerificationEntity; attempts: number } | null> {

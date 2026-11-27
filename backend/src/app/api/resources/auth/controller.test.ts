@@ -10,6 +10,7 @@ import { UserNotFoundError } from "../../../../domain/errors/UserNotFoundError.j
 import { Role } from "../../../../domain/models/entity/User.js";
 import { Session } from "../../../../domain/models/session.js";
 import { InvalidRefreshTokenError } from "../../../../domain/errors/InvalidRefreshTokenError.js";
+import { VerificationEmailLimitError } from "../../../../domain/errors/VerificationEmailLimitError.js";
 
 vi.mock("../../../../config.js", () => ({
     config: { jwt_secret_key: "unit-test-secret" }
@@ -56,6 +57,17 @@ describe("AuthController tokens", () => {
             expect(Verification.createEmailVerificationCode).toHaveBeenCalledWith(email);
             expect(EmailService.sendVerificationEmail).toHaveBeenCalledWith(email, code.code);
         });
+    });
+
+    test("answers 429 and sends nothing when an address reached its verification email limit", async () => {
+        vi.mocked(Verification.createEmailVerificationCode).mockRejectedValueOnce(new VerificationEmailLimitError());
+        const res = response();
+
+        await AuthController.createVerificationEmail({ body: { email: "test@example.com" } } as Request, res as unknown as Response);
+
+        expect(res.status).toHaveBeenCalledWith(429);
+        expect(res.json).toHaveBeenCalledWith({ error: "Too many verification emails requested for this address. Try again later." });
+        expect(EmailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
     describe("AuthController password reset requests", () => {

@@ -8,14 +8,23 @@ import { Session } from "../../../../domain/models/session.js";
 import { TokenService } from "../../../../domain/services/tokenService.js";
 import { UserNotFoundError } from "../../../../domain/errors/UserNotFoundError.js";
 import { InvalidRefreshTokenError } from "../../../../domain/errors/InvalidRefreshTokenError.js";
+import { VerificationEmailLimitError } from "../../../../domain/errors/VerificationEmailLimitError.js";
 import { clearRefreshCookie, setRefreshCookie } from "./refreshCookie.js";
 
 export const PASSWORD_RESET_REQUESTED_MESSAGE = "If an account uses that email, a password reset link has been sent.";
 
 class AuthController {
     public static async createVerificationEmail(req: Request, res: Response): Promise<Response> {
-        const { email } = req.body;
-        const { emailCode } = await Verification.createEmailVerificationCode(email);
+        const { email } = req.body ?? {};
+        let emailCode: Awaited<ReturnType<typeof Verification.createEmailVerificationCode>>["emailCode"];
+        try {
+            ({ emailCode } = await Verification.createEmailVerificationCode(email));
+        } catch (error) {
+            if (error instanceof VerificationEmailLimitError) {
+                return res.status(429).json({ error: error.message });
+            }
+            throw error;
+        }
         await EmailService.sendVerificationEmail(emailCode.email, emailCode.code);
         
         return res.status(200).json({ message: "Verification email sent successfully" });

@@ -38,7 +38,7 @@ export class EmailVerificationRepository {
     }
     /* eslint-disable no-unused-vars */
     /** Deletes rows whose expires_at is before `now`; returns how many were deleted. */
-    public static async deleteExpired(now: Date): Promise<number> {
+    public static async deleteExpired(now: Date, sendWindowMs?: number): Promise<number> {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
@@ -47,6 +47,14 @@ export class EmailVerificationRepository {
      * or null if the email has no code. Atomic, so concurrent submissions each get their own count.
      */
     public static async recordAttempt(email: string): Promise<{ verification: EmailVerification; attempts: number } | null> {
+        throw new Error("Method not implemented.");
+    }
+    /* eslint-disable no-unused-vars */
+    /**
+     * Creates or replaces the code for an email, unless the address already had `limit` codes
+     * sent within `windowMs`. Returns null when it's over the limit.
+     */
+    public static async issueCodeIfUnderLimit(entity: Pick<EmailVerification, "email" | "code" | "expiresAt">, limit: number, windowMs: number): Promise<EmailVerification | null> {
         throw new Error("Method not implemented.");
     }
 }

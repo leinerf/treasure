@@ -2,6 +2,7 @@ import { RefreshTokenRepository } from "../../infra/db/repository/RefreshTokenRe
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
 import LoggingService from "./loggingService.js";
+import { VERIFICATION_EMAIL_WINDOW_MS } from "../models/Verification.js";
 
 export const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -15,7 +16,7 @@ export class CleanupService {
         const [refreshTokens, passwordResets, emailVerifications] = await Promise.all([
             RefreshTokenRepository.deleteExpired(now),
             PasswordResetRepository.deleteExpired(now),
-            EmailVerificationRepository.deleteExpired(now),
+            EmailVerificationRepository.deleteExpired(now, VERIFICATION_EMAIL_WINDOW_MS),
         ]);
         return { refreshTokens, passwordResets, emailVerifications };
     }

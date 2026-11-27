@@ -99,6 +99,13 @@ counted before the code is compared, so simultaneous guesses can't get extra
 tries, and codes are compared in constant time. That leaves a guesser about 5 in
 900,000 per code, and each new code sends the owner another email.
 
+Each address can be sent at most 3 verification codes per hour (HTTP 429 after
+that), and each IP address may request 10 per hour, so the endpoint can't be
+used to flood an inbox or use up the server's email quota. Every address has a
+single code row that a new request updates in place; expired or locked codes
+keep their row, and the cleanup job only removes rows whose hour has passed, so
+none of these can reset the count. A successful verification deletes the row.
+
 Password resets use emailed links. Requesting a reset always returns the same
 response, whether or not an account uses the email, so the endpoint does not
 reveal which emails are registered. The response is sent before the account is

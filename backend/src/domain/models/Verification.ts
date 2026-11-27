@@ -8,9 +8,13 @@ import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
 import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
+import { VerificationEmailLimitError } from "../errors/VerificationEmailLimitError.js";
 
-/** Submissions allowed per email verification code; the 5th wrong one deletes it. */
+/** Submissions allowed per email verification code; the 5th wrong one makes it unusable. */
 export const EMAIL_CODE_MAX_ATTEMPTS = 5;
+/** Verification emails one address can be sent per window. */
+export const VERIFICATION_EMAILS_PER_WINDOW = 3;
+export const VERIFICATION_EMAIL_WINDOW_MS = 60 * 60 * 1000;
 
 // 256 bits of randomness: guessing a token is infeasible, so submissions need no per-account limit.
 const PASSWORD_RESET_TOKEN_BYTES = 32;
@@ -32,17 +36,17 @@ export class Verification {
             throw new EmailVerificationNotFoundError(email);
         }
         const { verification, attempts } = attempt;
-        if (ValidationService.isExpired(verification.expiresAt)) {
-            await EmailVerificationRepository.deleteById(verification.id);
-            throw new InvalidEmailVerificationError("Email verification code has expired. Request a new verification code.");
-        }
+        // The row is never deleted here, only by a successful verification or the cleanup job, so
+        // a lockout or expiry can't reset how many emails this address has been sent. The attempts
+        // count alone keeps a locked code unusable until a new code resets it.
         if (attempts > EMAIL_CODE_MAX_ATTEMPTS) {
-            await EmailVerificationRepository.deleteById(verification.id);
             throw new InvalidEmailVerificationError("Too many incorrect codes. Request a new verification code.");
+        }
+        if (ValidationService.isExpired(verification.expiresAt)) {
+            throw new InvalidEmailVerificationError("Email verification code has expired. Request a new verification code.");
         }
         if (!Verification.codesMatch(code, verification.code)) {
             if (attempts === EMAIL_CODE_MAX_ATTEMPTS) {
-                await EmailVerificationRepository.deleteById(verification.id);
                 throw new InvalidEmailVerificationError("Too many incorrect codes. Request a new verification code.");
             }
             throw new EmailVerificationNotFoundError(email);
@@ -63,15 +67,15 @@ export class Verification {
         if(!ValidationService.isValidEmail(email)){
             throw new InvalidEmailError("Invalid email format: " + email);
         }
-        const existingEmailCode = await EmailVerificationRepository.findOneByEmail(email);
-        if(existingEmailCode){
-            await EmailVerificationRepository.deleteById(existingEmailCode.id);
-        }
-        const emailCode = await EmailVerificationRepository.save({
+        // Replaces any earlier code for this address, which also resets its attempts.
+        const emailCode = await EmailVerificationRepository.issueCodeIfUnderLimit({
             email,
             code: Verification.generateRandomCode(),
             expiresAt: Verification.expireAt()
-        });
+        }, VERIFICATION_EMAILS_PER_WINDOW, VERIFICATION_EMAIL_WINDOW_MS);
+        if(!emailCode){
+            throw new VerificationEmailLimitError();
+        }
         return { emailCode };
     }
 
