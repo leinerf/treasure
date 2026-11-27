@@ -41,4 +41,19 @@ describe("EmailService notices", () => {
         await new Promise((resolve) => setImmediate(resolve));
         expect(LoggingService.error).toHaveBeenCalledWith("Email not sent: password changed notice for user u1: SMTP down");
     });
+
+    test("tells the previous address the email changed, with the new address partly hidden", async () => {
+        await EmailService.sendEmailChangedEmail("old@example.com", "alice.new@example.org");
+        const mail = vi.mocked(transporter.sendMail).mock.calls[0]![0] as { to: string; subject: string; text: string };
+        expect(mail.to).toBe("old@example.com");
+        expect(mail.subject).toBe("Your account email was changed");
+        expect(mail.text).toContain("a•••@example.org");
+        expect(mail.text).not.toContain("alice.new@example.org");
+    });
+
+    test("masks an email down to its first character and domain", () => {
+        expect(EmailService.maskEmail("alice@example.com")).toBe("a•••@example.com");
+        expect(EmailService.maskEmail("@example.com")).toBe("•••");
+        expect(EmailService.maskEmail("no-at-sign")).toBe("•••");
+    });
 });

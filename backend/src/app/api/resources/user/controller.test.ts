@@ -21,7 +21,7 @@ vi.mock("../../../../domain/services/fileService.js", () => ({
 }));
 vi.mock("../../../../domain/services/loggingService.js", () => ({ default: { info: vi.fn() } }));
 vi.mock("../../../../domain/services/emailService.js", () => ({
-    default: { sendPasswordChangedEmail: vi.fn(), sendInBackground: vi.fn() }
+    default: { sendPasswordChangedEmail: vi.fn(), sendEmailChangedEmail: vi.fn(), sendInBackground: vi.fn() }
 }));
 vi.mock("../../../../domain/models/session.js", () => ({
     Session: { create: vi.fn(), revokeAll: vi.fn() }
@@ -49,10 +49,11 @@ describe("UserController pagination", () => {
 });
 
 describe("UserController email change", () => {
-    test("passes the current password through for re-authentication", async () => {
+    test("passes the current password through, signs out other sessions and tells the old address", async () => {
         const user = { id: "user-id", username: "alice", email: "new@example.com", password: "hash", role: Role.User };
-        vi.mocked(User.updateEmail).mockResolvedValueOnce({ user });
-        const res = { locals: { userId: "user-id" }, status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+        vi.mocked(User.updateEmail).mockResolvedValueOnce({ user, previousEmail: "old@example.com" });
+        vi.mocked(Session.create).mockResolvedValueOnce({ refreshToken: "new-refresh-token" });
+        const res = { locals: { userId: "user-id" }, status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), cookie: vi.fn().mockReturnThis() };
         const req: Partial<Request> = {
             body: { newEmail: "new@example.com", emailVerificationCode: "123456", currentPassword: "Current!123" }
         };
@@ -60,8 +61,26 @@ describe("UserController email change", () => {
         await UserController.updateEmail(req as Request, res as unknown as Response);
 
         expect(User.updateEmail).toHaveBeenCalledWith("new@example.com", "123456", "Current!123", "user-id");
+        expect(Session.revokeAll).toHaveBeenCalledWith("user-id");
+        expect(vi.mocked(Session.revokeAll).mock.invocationCallOrder.at(-1))
+            .toBeLessThan(vi.mocked(Session.create).mock.invocationCallOrder.at(-1)!);
+        expect(res.cookie).toHaveBeenCalledWith("refreshToken", "new-refresh-token", expect.objectContaining({ httpOnly: true, path: "/api/auth" }));
+        expect(EmailService.sendEmailChangedEmail).toHaveBeenCalledWith("old@example.com", "new@example.com");
+        expect(EmailService.sendInBackground).toHaveBeenCalledWith(undefined, "email changed notice for user user-id");
         expect(res.status).toHaveBeenCalledWith(200);
         expect(JSON.stringify(res.json.mock.calls)).not.toContain("hash");
+    });
+
+    test("sends no notice when the email didn't actually change", async () => {
+        const user = { id: "user-id", username: "alice", email: "same@example.com", password: "hash", role: Role.User };
+        vi.mocked(User.updateEmail).mockResolvedValueOnce({ user, previousEmail: "same@example.com" });
+        vi.mocked(Session.create).mockResolvedValueOnce({ refreshToken: "new-refresh-token" });
+        vi.mocked(EmailService.sendEmailChangedEmail).mockClear();
+        const res = { locals: { userId: "user-id" }, status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), cookie: vi.fn().mockReturnThis() };
+
+        await UserController.updateEmail({ body: { newEmail: "same@example.com", emailVerificationCode: "123456", currentPassword: "Current!123" } } as Request, res as unknown as Response);
+
+        expect(EmailService.sendEmailChangedEmail).not.toHaveBeenCalled();
     });
 });
 

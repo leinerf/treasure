@@ -50,8 +50,17 @@ class UserController {
     public static async updateEmail(req: Request, res: Response): Promise<Response> {
         const userId: string = res.locals.userId;
         const { newEmail, emailVerificationCode, currentPassword } = req.body ?? {};
-        const { user } = await User.updateEmail(newEmail, emailVerificationCode, currentPassword, userId);
-        
+        const { user, previousEmail } = await User.updateEmail(newEmail, emailVerificationCode, currentPassword, userId);
+        // Like a password change: sign out every other session, then give this browser a fresh
+        // refresh token, so a session someone else holds doesn't survive the change.
+        await Session.revokeAll(user.id);
+        const { refreshToken } = await Session.create(user.id);
+        setRefreshCookie(res, refreshToken);
+        // Tell the old address, which is the real owner's way to notice a change they didn't make.
+        if (previousEmail !== user.email) {
+            EmailService.sendInBackground(EmailService.sendEmailChangedEmail(previousEmail, user.email), `email changed notice for user ${user.id}`);
+        }
+
         LoggingService.info(`Email updated successfully for user with id: ${user.id}`);
         return res.status(200).json({ user: UserController.filterUser(user), message: "Email updated successfully" });
     }

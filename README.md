@@ -24,7 +24,7 @@ API_STATIC_DIR=public
 API_IMG_DIR=images
 GMAIL_ADDRESS=your-address@example.com
 GMAIL_APP_PASSWORD=your-app-password
-JWT_SECRET_KEY=replace-with-a-long-random-secret
+JWT_SECRET_KEY=replace-with-output-of-openssl-rand-hex-32
 SALT_ROUNDS=12
 DB_HOST=localhost
 DB_PORT=5432
@@ -35,7 +35,8 @@ DB_NAME=treasure
 
 The backend needs all of these variables at startup. The database must already
 exist. `APP_BASE_URL` is the address users open the app at; password-reset emails
-link to it. Configure a Gmail address and app password for email features. Keep this
+link to it. `JWT_SECRET_KEY` must be at least 32 characters, or the backend
+refuses to start; generate one with `openssl rand -hex 32`. Configure a Gmail address and app password for email features. Keep this
 file and its credentials private.
 
 Authentication uses 15-minute bearer access tokens and seven-day refresh tokens.
@@ -50,8 +51,9 @@ rotated: each refresh also issues a brand-new access token, and the previous
 access token is not tracked and simply expires. Logout revokes the current session; changing or resetting a
 password, or an admin deleting the account, revokes all of the user's sessions
 (a password change keeps the browser that made it signed in). Changing the email
-revokes nothing: sessions signed in before the change stay valid until they
-expire or sign out, although the change itself requires the current password. If a rotated
+does the same: it signs out every other session, keeps the browser that made the
+change signed in, and emails the previous address that the email changed, with
+the new address partly hidden. If a rotated
 refresh token is presented more than 30 seconds after rotation, it is treated
 as stolen and all of that user's sessions are revoked; within those 30 seconds
 it still yields an access token, so tabs refreshing at the same moment do not
@@ -83,6 +85,11 @@ token, `accessToken` shows `"present": false`: the access token is only sent in
 the `Authorization` header, so opening the URL in a browser tab can't report it.
 The check is read-only: it never rotates the refresh token or triggers reuse
 detection.
+
+Admin routes (listing, searching and deleting users) use the `requireRole`
+middleware after `auth`: it reads the user's role from the database on each
+request and answers 403 if they aren't an admin, or 401 if the account no longer
+exists. Add `requireRole(Role.Admin)` to any new admin route.
 
 The admin user-list endpoint accepts a page `limit` from 1 to 100; larger
 limits are rejected with a 400 response.

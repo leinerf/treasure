@@ -399,8 +399,9 @@ describe('User Model Tests', () => {
       const newEmail = 'newemail@example.com';
       const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
       checkEmailCode(emailCode, newEmail);
-      const { user } = await User.updateEmail(newEmail, emailCode.code, password, userId);
+      const { user, previousEmail } = await User.updateEmail(newEmail, emailCode.code, password, userId);
       checkUser(user, username, newEmail);
+      expect(previousEmail).toBe(email);
       
     });
     test('Fail to update email with no email verification code', async () => {

@@ -154,7 +154,7 @@ class User {
         return { user: updatedUser  }
     }
     
-    public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, userId: string): Promise<{ user: UserEntity }> {
+    public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, userId: string): Promise<{ user: UserEntity; previousEmail: string }> {
         newEmail = ValidationService.normalizeEmail(newEmail);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
@@ -179,9 +179,10 @@ class User {
         if(!updatedUser){
             throw new UserError("Failed to update user email");
         }
+        const previousEmail = existingUser.email;
         existingUser.email = updatedUser.email;
 
-        return { user: existingUser }
+        return { user: existingUser, previousEmail }
     }
 
     public static async deleteUser(userId: string): Promise<{ user: UserEntity }> {

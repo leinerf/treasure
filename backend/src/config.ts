@@ -32,6 +32,11 @@ if(!process.env.GMAIL_APP_PASSWORD) {
 if(!process.env.JWT_SECRET_KEY) {
     throw new Error('JWT_SECRET_KEY is not defined');
 }
+// HS256 tokens are only as strong as this secret: anyone who guesses it can sign tokens for any
+// user. 32 characters is the floor; a random 64-character hex string is better.
+if(process.env.JWT_SECRET_KEY.length < 32) {
+    throw new Error('JWT_SECRET_KEY must be at least 32 characters; generate one with: openssl rand -hex 32');
+}
 if(!process.env.SALT_ROUNDS) {
     throw new Error('SALT_ROUNDS is not defined');
 }
