@@ -32,7 +32,7 @@ describe("UserController pagination", () => {
     test("accepts a limit of 100 and rejects larger limits before querying users", async () => {
         vi.mocked(User.adminFindUsers).mockReset().mockResolvedValue({ users: [], count: 0 });
         const res = {
-            locals: { accessToken: "access-token" },
+            locals: { userId: "user-id" },
             status: vi.fn().mockReturnThis(),
             json: vi.fn().mockReturnThis()
         };
@@ -40,7 +40,7 @@ describe("UserController pagination", () => {
         const oversizedRequest: Partial<Request> = { query: { offset: "0", limit: "101" } };
 
         await UserController.getUsers(validRequest as Request, res as unknown as Response);
-        expect(User.adminFindUsers).toHaveBeenCalledWith("access-token", 0, 100);
+        expect(User.adminFindUsers).toHaveBeenCalledWith("user-id", 0, 100);
 
         await expect(UserController.getUsers(oversizedRequest as Request, res as unknown as Response))
             .rejects.toBeInstanceOf(InvalidOffsetOrLimitError);
@@ -52,14 +52,14 @@ describe("UserController email change", () => {
     test("passes the current password through for re-authentication", async () => {
         const user = { id: "user-id", username: "alice", email: "new@example.com", password: "hash", role: Role.User };
         vi.mocked(User.updateEmail).mockResolvedValueOnce({ user });
-        const res = { locals: { accessToken: "access-token" }, status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+        const res = { locals: { userId: "user-id" }, status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
         const req: Partial<Request> = {
             body: { newEmail: "new@example.com", emailVerificationCode: "123456", currentPassword: "Current!123" }
         };
 
         await UserController.updateEmail(req as Request, res as unknown as Response);
 
-        expect(User.updateEmail).toHaveBeenCalledWith("new@example.com", "123456", "Current!123", "access-token");
+        expect(User.updateEmail).toHaveBeenCalledWith("new@example.com", "123456", "Current!123", "user-id");
         expect(res.status).toHaveBeenCalledWith(200);
         expect(JSON.stringify(res.json.mock.calls)).not.toContain("hash");
     });
@@ -77,7 +77,7 @@ describe("UserController profile photos", () => {
         const file = { originalname: "profile.jpg", size: 3, buffer: Buffer.from("abc") } as Express.Multer.File;
         const req: Partial<Request> = { file };
         const res = {
-            locals: { accessToken: "access-token" },
+            locals: { userId: "user-id" },
             status: vi.fn().mockReturnThis(),
             json: vi.fn().mockReturnThis()
         };
@@ -85,8 +85,8 @@ describe("UserController profile photos", () => {
         await UserController.uploadProfilePictureToAWS(req as Request, res as unknown as Response);
         await UserController.getProfilePictureFromAWS(req as Request, res as unknown as Response);
 
-        expect(PhotoData.saveProfilePhotoMetadata).toHaveBeenCalledWith("key", 3, "test-bucket", "access-token");
-        expect(PhotoData.getProfilePhotoMetadata).toHaveBeenCalledWith("access-token");
+        expect(PhotoData.saveProfilePhotoMetadata).toHaveBeenCalledWith("key", 3, "test-bucket", "user-id");
+        expect(PhotoData.getProfilePhotoMetadata).toHaveBeenCalledWith("user-id");
         expect(res.json).toHaveBeenLastCalledWith({ url: "https://example.com/photo" });
     });
 });
@@ -94,7 +94,7 @@ describe("UserController profile photos", () => {
 describe("UserController sessions", () => {
     const user = { id: "user-id", username: "alice", email: "alice@example.com", password: "hash", role: Role.User };
     const response = () => ({
-        locals: { accessToken: "access-token" },
+        locals: { userId: "user-id" },
         status: vi.fn().mockReturnThis(),
         cookie: vi.fn().mockReturnThis(),
         json: vi.fn().mockReturnThis()

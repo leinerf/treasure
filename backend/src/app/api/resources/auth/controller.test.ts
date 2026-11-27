@@ -4,6 +4,7 @@ import AuthController, { PASSWORD_RESET_REQUESTED_MESSAGE } from "./controller.j
 import User from "../../../../domain/models/user.js";
 import { Verification } from "../../../../domain/models/Verification.js";
 import EmailService from "../../../../domain/services/emailService.js";
+import LoggingService from "../../../../domain/services/loggingService.js";
 import { TokenService } from "../../../../domain/services/tokenService.js";
 import { UserNotFoundError } from "../../../../domain/errors/UserNotFoundError.js";
 import { Role } from "../../../../domain/models/entity/User.js";
@@ -14,7 +15,7 @@ vi.mock("../../../../config.js", () => ({
     config: { jwt_secret_key: "unit-test-secret" }
 }));
 vi.mock("../../../../domain/models/user.js", () => ({
-    default: { createUserAuthentication: vi.fn(), getUser: vi.fn(), resetPassword: vi.fn() }
+    default: { createUserAuthentication: vi.fn(), createNewUser: vi.fn(), getUser: vi.fn(), resetPassword: vi.fn() }
 }));
 vi.mock("../../../../domain/models/Verification.js", () => ({
     Verification: { createEmailVerificationCode: vi.fn(), createPasswordResetToken: vi.fn() }
@@ -134,9 +135,19 @@ describe("AuthController tokens", () => {
 
     const user = { id: "user-id", username: "alice", email: "alice@example.com", password: "hash", role: Role.User };
 
+    test("logs a new registration by user id only, never the email address", async () => {
+        vi.mocked(User.createNewUser).mockResolvedValueOnce({ user });
+        const res = response();
+        await AuthController.register({ body: { username: "alice", email: user.email, emailVerificationCode: "123456", password: "Password!123" } } as Request, res as unknown as Response);
+        expect(res.status).toHaveBeenCalledWith(200);
+        const logged = vi.mocked(LoggingService.info).mock.calls.map(([message]) => String(message)).join("\n");
+        expect(logged).toContain("user-id");
+        expect(logged).not.toContain(user.email);
+    });
+
     test("returns an access token and stores a new session's refresh token in an HttpOnly cookie", async () => {
         const accessToken = TokenService.createAccessToken("user-id");
-        vi.mocked(User.createUserAuthentication).mockResolvedValue({ jwt: accessToken });
+        vi.mocked(User.createUserAuthentication).mockResolvedValue({ jwt: accessToken, userId: "user-id" });
         vi.mocked(Session.create).mockResolvedValue({ refreshToken: "refresh-token" });
         const req = { body: { username: "alice", password: "password" } } as Request;
         const res = response();
@@ -159,7 +170,7 @@ describe("AuthController tokens", () => {
         await AuthController.refreshToken(req as Request, res as unknown as Response);
 
         expect(Session.refresh).toHaveBeenCalledWith("refresh-token");
-        expect(User.getUser).toHaveBeenCalledWith(accessToken);
+        expect(User.getUser).toHaveBeenCalledWith("user-id");
         expect(res.cookie).toHaveBeenCalledWith("refreshToken", "next-refresh-token", expect.objectContaining({ path: "/api/auth" }));
         expect(res.json).toHaveBeenCalledWith({ accessToken });
     });

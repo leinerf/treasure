@@ -6,12 +6,15 @@ const auth = (req: Request, res: Response, next: NextFunction): Response | void 
     if (!match?.[1]) {
         return res.status(401).json({ error: "Unauthorized" });
     }
+    let userId: string;
     try {
-        TokenService.verifyAccessToken(match[1]);
+        userId = TokenService.verifyAccessToken(match[1]);
     } catch {
         return res.status(401).json({ error: "Unauthorized" });
     }
-    res.locals.accessToken = match[1];
+    // The only place access tokens are checked for user routes: everything after this works
+    // with the verified user id, never the token itself.
+    res.locals.userId = userId;
     next();
 }
 

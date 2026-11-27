@@ -69,8 +69,7 @@ class User {
         return { user: newUser }
     }
     
-    public static async getUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async getUser(userId: string): Promise<{ user: UserEntity }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -78,8 +77,7 @@ class User {
         return { user: existingUser }
     }
 
-    public static async updateUsername(newUsername: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async updateUsername(newUsername: string, userId: string): Promise<{ user: UserEntity }> {
         if(!ValidationService.isValidUsername(newUsername)){
             throw new InvalidUsernameError("could not validate username: " + newUsername);
         }
@@ -99,8 +97,7 @@ class User {
         return { user: updatedUser }
     }
 
-    public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async updatePassword(oldPassword: string, newPassword: string, userId: string): Promise<{ user: UserEntity }> {
         if(!ValidationService.isValidPassword(newPassword)){
             throw new InvalidPasswordError("Invalid new password format");
         }
@@ -164,9 +161,8 @@ class User {
         return { user: updatedUser  }
     }
     
-    public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, jwt: string): Promise<{ user: UserEntity }> {
+    public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, userId: string): Promise<{ user: UserEntity }> {
         newEmail = ValidationService.normalizeEmail(newEmail);
-        const userId = TokenService.userIdFromAccessToken(jwt);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -190,8 +186,7 @@ class User {
         return { user: existingUser }
     }
 
-    public static async deleteUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async deleteUser(userId: string): Promise<{ user: UserEntity }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -200,7 +195,7 @@ class User {
         return { user: existingUser }
     }
     
-    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string }> {
+    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string; userId: string }> {
         const existingUser: UserEntity | null = await UserRepository.findOneByUsername(username);
         if(!existingUser){
             throw new UserNotFoundError("User does not exist with username: " + username);
@@ -210,11 +205,10 @@ class User {
             throw new InvalidPasswordError("Invalid password");
         }
         const jwt = TokenService.createAccessToken(existingUser.id);
-        return { jwt };
+        return { jwt, userId: existingUser.id };
     }
 
-    public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async adminFindUsers(userId: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
 
         if(!ValidationService.isValidOffsetAndLimit(offset, limit)){
             throw new InvalidOffsetOrLimitError("Invalid offset or limit");
@@ -233,8 +227,7 @@ class User {
         return { users, count };
     }
 
-    public static async adminSearchUsers(jwt: string, query: string): Promise<{ users: UserEntity[] }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async adminSearchUsers(userId: string, query: string): Promise<{ users: UserEntity[] }> {
         if(!ValidationService.isValidSearchQuery(query)){
             throw new InvalidQueryError("Query must be at least 3 characters long");
         }
@@ -249,8 +242,7 @@ class User {
         return { users };
     }
 
-    public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async adminDeleteUser(userId: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);

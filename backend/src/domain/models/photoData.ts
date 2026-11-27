@@ -1,4 +1,3 @@
-import { TokenService } from "../services/tokenService.js";
 import { Trait, type PhotoMetadata, type Trait as TraitType } from "./entity/PhotoMetadata.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { PhotoMetadataRepository } from "../../infra/db/repository/PhotoMetadataRepository.js";
@@ -7,8 +6,7 @@ import { UserError } from "../errors/UserError.js";
 import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 
 export class PhotoData {
-    public static async savePhotoMetadata(filename: string, size: number, trait: TraitType, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async savePhotoMetadata(filename: string, size: number, trait: TraitType, path: string, userId: string): Promise<{ photoMetadata: PhotoMetadata }> {
         const existingUser = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -28,12 +26,11 @@ export class PhotoData {
         return { photoMetadata };
     }
 
-    public static async saveProfilePhotoMetadata(filename: string, size: number, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        return PhotoData.savePhotoMetadata(filename, size, Trait.PROFILE, path, jwt);
+    public static async saveProfilePhotoMetadata(filename: string, size: number, path: string, userId: string): Promise<{ photoMetadata: PhotoMetadata }> {
+        return PhotoData.savePhotoMetadata(filename, size, Trait.PROFILE, path, userId);
     }
 
-    public static async getProfilePhotoMetadata(jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = TokenService.userIdFromAccessToken(jwt);
+    public static async getProfilePhotoMetadata(userId: string): Promise<{ photoMetadata: PhotoMetadata }> {
         const existingUser = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);

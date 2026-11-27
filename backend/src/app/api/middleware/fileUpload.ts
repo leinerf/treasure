@@ -2,7 +2,6 @@ import multer from "multer";
 import type { RequestHandler } from "express";
 import path from "path";
 import {config } from "../../../config.js";
-import { TokenService } from "../../../domain/services/tokenService.js";
 import fs from "fs";
 import crypto from "node:crypto";
 
@@ -45,14 +44,11 @@ const uploadToServerDest = (userId: string) => {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        let userId: string;
-        try {
-            userId = TokenService.userIdFromAccessToken(req.res?.locals.accessToken);
-        } catch (error) {
-            return cb(error as Error, "");
+        // Set by the auth middleware, which runs before this upload middleware on every upload route.
+        const userId: unknown = req.res?.locals.userId;
+        if (typeof userId !== "string" || !userId) {
+            return cb(new Error("Missing authenticated user"), "");
         }
-        
-        
         cb(null, uploadToServerDest(userId));
     },
     filename: (req, file, cb) => {

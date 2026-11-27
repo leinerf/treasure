@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import { config } from "../../config.js";
-import { InvalidJWTError } from "../errors/InvalidJWTError.js";
 
 const ACCESS_TOKEN_SECONDS = 15 * 60;
 export const REFRESH_TOKEN_SECONDS = 7 * 24 * 60 * 60;
@@ -33,18 +32,6 @@ export class TokenService {
 
     public static verifyAccessToken(token: string): string {
         return this.verify(token, "access").id;
-    }
-
-    /**
-     * The user id in a valid access token. Throws InvalidJWTError, which the route error
-     * handler answers with 400, for a missing, malformed, expired or wrong-type token.
-     */
-    public static userIdFromAccessToken(token: unknown): string {
-        try {
-            return this.verifyAccessToken(token as string);
-        } catch {
-            throw new InvalidJWTError("Invalid JWT");
-        }
     }
 
     public static verifyRefreshToken(token: string): { userId: string; tokenId: string } {

@@ -35,7 +35,7 @@ describe("Auth middleware", () => {
         expect(next).not.toHaveBeenCalled();
     });
 
-    test("accepts a valid bearer token and makes it available to controllers", () => {
+    test("accepts a valid bearer token and gives controllers the verified user id, not the token", () => {
         const token = TokenService.createAccessToken("user-id");
         const req = { headers: { authorization: `Bearer ${token}` } } as Request;
         const res = { status: vi.fn().mockReturnThis(), json: vi.fn(), locals: {} } as unknown as Response;
@@ -43,7 +43,8 @@ describe("Auth middleware", () => {
 
         auth(req, res, next);
 
-        expect(res.locals.accessToken).toBe(token);
+        expect(res.locals.userId).toBe("user-id");
+        expect(res.locals.accessToken).toBeUndefined();
         expect(next).toHaveBeenCalledOnce();
     });
 });

@@ -16,7 +16,6 @@ const paths = vi.hoisted(() => {
 });
 
 vi.mock("../../../config.js", () => ({ config: { api_static_dir: paths.staticDir, api_img_dir: "images" } }));
-vi.mock("../../../domain/services/tokenService.js", () => ({ TokenService: { userIdFromAccessToken: () => "user-1" } }));
 
 const { generateUploadFilename, IMAGE_EXTENSIONS, MAX_UPLOAD_BYTES, uploadSingleImage, bufferUploadSingle } = await import("./fileUpload.js");
 
@@ -32,7 +31,7 @@ const uploadFile = async (
     { bytes = 32, middleware = uploadSingleImage("profile"), count = 1 }: { bytes?: number; middleware?: express.RequestHandler; count?: number } = {}
 ): Promise<{ status: number; body: Stored }> => {
     const app = express();
-    app.post("/upload", (_req, res, next) => { res.locals.accessToken = "token"; next(); }, middleware,
+    app.post("/upload", (_req, res, next) => { res.locals.userId = "user-1"; next(); }, middleware,
         (req, res) => res.json({ file: req.file ? { filename: req.file.filename, path: req.file.path } : null }));
     const server = app.listen(0, "127.0.0.1");
     try {

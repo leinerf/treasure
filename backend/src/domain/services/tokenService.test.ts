@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import jwt from "jsonwebtoken";
 import { TokenService } from "./tokenService.js";
-import { InvalidJWTError } from "../errors/InvalidJWTError.js";
 
 vi.mock("../../config.js", () => ({
     config: { jwt_secret_key: "unit-test-secret" }
@@ -52,15 +51,4 @@ describe("TokenService", () => {
         expect(() => TokenService.verifyRefreshToken(otherSecret)).toThrow();
     });
 
-    test("userIdFromAccessToken returns the id of a valid access token", () => {
-        expect(TokenService.userIdFromAccessToken(TokenService.createAccessToken("user-id"))).toBe("user-id");
-    });
-
-    test("userIdFromAccessToken throws InvalidJWTError for anything else", () => {
-        const expired = jwt.sign({ id: "user-id", type: "access" }, "unit-test-secret", { algorithm: "HS256", expiresIn: -1 });
-        const wrongSecret = jwt.sign({ id: "user-id", type: "access" }, "other-secret", { algorithm: "HS256" });
-        for (const token of [undefined, "", "not-a-jwt", expired, wrongSecret, TokenService.createRefreshToken("user-id", "token-id")]) {
-            expect(() => TokenService.userIdFromAccessToken(token)).toThrow(InvalidJWTError);
-        }
-    });
 });

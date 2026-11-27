@@ -21,7 +21,6 @@ import { InvalidUsernameError } from '../errors/InvalidUsernameError.js';
 import { UserExistsError } from '../errors/UserExistsError.js';
 import { UserNotFoundError } from '../errors/UserNotFoundError.js';
 import { InvalidRoleError } from '../errors/InvalidRoleError.js';
-import { InvalidJWTError } from '../errors/InvalidJWTError.js';
 import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
@@ -212,22 +211,20 @@ describe('User Model Tests', () => {
       // Clean up any existing users and email verification codes after each test
       await cleanUpTestDB();
     });
-    test('Successfully get user with valid JWT', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
-      if(!jwt) {
-        throw new Error('JWT not created');
-      }
+    test('Successfully get user with their user id', async () => {
+      const { jwt, userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
+      // Login still returns an access token, and it identifies the same user.
+      expect(TokenService.verifyAccessToken(jwt)).toBe(userId);
 
-      const { user } = await User.getUser(jwt);
+      const { user } = await User.getUser(userId);
       checkUser(user, username, email);
     });
-    test('Fail to get jwt with invalid username and password', async () => {
+    test('Fail to get userId with invalid username and password', async () => {
       await expect(User.createUserAuthentication('invalidUsername', 'invalidPassword')).rejects.toThrow(UserNotFoundError);
     });
-    test('Fail to get user with invalid JWT', async () => {
-      await expect(User.getUser('invalidJWT')).rejects.toThrow(InvalidJWTError);
-      
+    test('Fail to get a user with an unknown user id', async () => {
+      await expect(User.getUser('00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);
     });
   });
   describe('Update Username', () => {
@@ -244,54 +241,46 @@ describe('User Model Tests', () => {
       await cleanUpTestDB();
     });
     test('Update username successfully', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
       const newUsername = 'updatedUsername';
-      const { user } = await User.updateUsername(newUsername, jwt);
+      const { user } = await User.updateUsername(newUsername, userId);
       checkUser(user, newUsername, email);
     });
-    test('Fail to update username with invalid JWT', async () => {
+    test('Fail to update username for an unknown user id', async () => {
       const newUsername = 'updatedUsername';
-      await expect(User.updateUsername(newUsername, 'invalidJWT')).rejects.toThrow(InvalidJWTError);
-    });
-    test('Fail to update username with empty JWT', async () => {
-      const newUsername = 'updatedUsername';
-      await expect(User.updateUsername(newUsername, '')).rejects.toThrow(InvalidJWTError);
-    });
-    test('Fail to update username with missing JWT', async () => {
-      const newUsername = 'updatedUsername';
-      await expect(User.updateUsername(newUsername, undefined as any)).rejects.toThrow(InvalidJWTError);
+      await expect(User.updateUsername(newUsername, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to update username with empty new username', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newUsername = '';
-      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
+      await expect(User.updateUsername(newUsername, userId)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with missing new username', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newUsername = undefined as any;
-      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
+      await expect(User.updateUsername(newUsername, userId)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with invalid new username', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newUsername = '123invalid@username';
-      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
+      await expect(User.updateUsername(newUsername, userId)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with too short new username', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newUsername = 'ab';
-      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
+      await expect(User.updateUsername(newUsername, userId)).rejects.toThrow(InvalidUsernameError);
     });
     test('Fail to update username with too long new username', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newUsername = 'a'.repeat(51); // Assuming max length is 50
-      await expect(User.updateUsername(newUsername, jwt)).rejects.toThrow(InvalidUsernameError);
+      await expect(User.updateUsername(newUsername, userId)).rejects.toThrow(InvalidUsernameError);
     });
   });
   describe('Update Email', () => {
@@ -309,41 +298,41 @@ describe('User Model Tests', () => {
       await cleanUpTestDB();
     });
     test('Successfully update email with valid new email', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       
       const newEmail = 'newemail@example.com';
       const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
       checkEmailCode(emailCode, newEmail);
-      const { user } = await User.updateEmail(newEmail, emailCode.code, password, jwt);
+      const { user } = await User.updateEmail(newEmail, emailCode.code, password, userId);
       checkUser(user, username, newEmail);
       
     });
     test('Fail to update email with no email verification code', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
       const newEmail = 'newemail@example.com';
-      await expect(User.updateEmail(newEmail, '', password, jwt)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.updateEmail(newEmail, '', password, userId)).rejects.toThrow(EmailVerificationNotFoundError);
     });
     test('Fail to update email with invalid email verification code', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       
       const newEmail = 'newemail@example.com';
-      await expect(User.updateEmail(newEmail, 'invalidcode', password, jwt)).rejects.toThrow(EmailVerificationNotFoundError);
+      await expect(User.updateEmail(newEmail, 'invalidcode', password, userId)).rejects.toThrow(EmailVerificationNotFoundError);
     });
     test.each([
       ['a wrong', 'Wrong!Password123'],
       ['an empty', ''],
     ])('Rejects %s current password without changing the email or using the code', async (_label, currentPassword) => {
-      const { jwt } = await User.createUserAuthentication(username, password);
+      const { userId } = await User.createUserAuthentication(username, password);
       const newEmail = 'newemail@example.com';
       const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
 
-      await expect(User.updateEmail(newEmail, emailCode.code, currentPassword, jwt)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.updateEmail(newEmail, emailCode.code, currentPassword, userId)).rejects.toThrow(InvalidPasswordError);
 
-      const { user } = await User.getUser(jwt);
+      const { user } = await User.getUser(userId);
       expect(user.email).toBe(email);
       expect(await EmailVerificationRepository.findOneByCodeAndEmail(emailCode.code, newEmail)).not.toBeNull();
     });
@@ -361,59 +350,52 @@ describe('User Model Tests', () => {
     });
     // TODO: Figure out why update password has high latency 300ms
     test('Successfully update password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       const newPassword = 'newPassword!123';
-      const { user } = await User.updatePassword(password, newPassword, jwt);
+      const { user } = await User.updatePassword(password, newPassword, userId);
       checkUser(user, username, email);
-      const { jwt: newJwt } = await User.createUserAuthentication(username, newPassword);
-      expect(newJwt).toBeDefined();
-      const { user: newUser } = await User.getUser(newJwt);
+      const { userId: newUserId } = await User.createUserAuthentication(username, newPassword);
+      expect(newUserId).toBeDefined();
+      const { user: newUser } = await User.getUser(newUserId);
       checkUser(newUser, username, email);
     });
     test('Fail to update password with incorrect current password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
       const newPassword = 'newPassword!123';
-      await expect(User.updatePassword('wrongPassword', newPassword, jwt)).rejects.toThrow(InvalidPasswordError);
-    });
-    test('Fail to update password with missing JWT', async () => {
-      const newPassword = 'newPassword!123';
-      await expect(User.updatePassword(password, newPassword, '')).rejects.toThrow(InvalidJWTError);
+      await expect(User.updatePassword('wrongPassword', newPassword, userId)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with missing current password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
       const newPassword = 'newPassword!123';
-      await expect(User.updatePassword('', newPassword, jwt)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.updatePassword('', newPassword, userId)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with missing new password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
-      await expect(User.updatePassword(password, '', jwt)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.updatePassword(password, '', userId)).rejects.toThrow(InvalidPasswordError);
     });
-    test('Fail to update password with incorrect JWT', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
-
+    test('Fail to update password for an unknown user id', async () => {
       const newPassword = 'newPassword!123';
-      await expect(User.updatePassword(password, newPassword, 'invalidJWT')).rejects.toThrow(InvalidJWTError);
+      await expect(User.updatePassword(password, newPassword, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);
     });
     test('Fail to update password with same as current password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
-      await expect(User.updatePassword(password, password, jwt)).rejects.toThrow(InvalidPasswordError);
+      await expect(User.updatePassword(password, password, userId)).rejects.toThrow(InvalidPasswordError);
     });
     test('Fail to update password with invalid new password', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
 
       const invalidNewPassword = 'weak-secret';
-      const error = await User.updatePassword(password, invalidNewPassword, jwt).catch((caught: unknown) => caught);
+      const error = await User.updatePassword(password, invalidNewPassword, userId).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(InvalidPasswordError);
       expect((error as Error).message).not.toContain(invalidNewPassword);
     });
@@ -539,8 +521,8 @@ describe('User Model Tests', () => {
     test('Successfully reset password with a valid token', async () => {
       const { user } = await User.resetPassword('newPassword!123', resetToken);
       checkUser(user, username, email);
-      const { jwt } = await User.createUserAuthentication(username, 'newPassword!123');
-      const { user: fetchedUser } = await User.getUser(jwt);
+      const { userId } = await User.createUserAuthentication(username, 'newPassword!123');
+      const { user: fetchedUser } = await User.getUser(userId);
       checkUser(fetchedUser, username, email);
     });
     test('A token works only once, even for concurrent submissions', async () => {
@@ -608,18 +590,18 @@ describe('User Model Tests', () => {
       await cleanUpTestDB();
     });
     test('Delete user successfully', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
-      await User.deleteUser(jwt);
-      await expect(User.getUser(jwt)).rejects.toThrow(UserNotFoundError);
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
+      await User.deleteUser(userId);
+      await expect(User.getUser(userId)).rejects.toThrow(UserNotFoundError);
     });
     test("Deleting a user deletes their sessions through the foreign key", async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      const { refreshToken } = await Session.create(TokenService.verifyAccessToken(jwt));
+      const { userId } = await User.createUserAuthentication(username, password);
+      const { refreshToken } = await Session.create(userId);
       const { tokenId } = TokenService.verifyRefreshToken(refreshToken);
       expect(await RefreshTokenRepository.findOneById(tokenId)).not.toBeNull();
 
-      await User.deleteUser(jwt);
+      await User.deleteUser(userId);
 
       expect(await RefreshTokenRepository.findOneById(tokenId)).toBeNull();
       await expect(Session.isActive(refreshToken)).resolves.toBe(false);
@@ -627,23 +609,18 @@ describe('User Model Tests', () => {
     test('Rejects a session for a user that does not exist', async () => {
       await expect(Session.create('00000000-0000-0000-0000-000000000000')).rejects.toThrow();
     });
-    test('Fail to delete user with invalid JWT', async () => {
-      await expect(User.deleteUser('invalidJWT')).rejects.toThrow(InvalidJWTError);
-      const { jwt } = await User.createUserAuthentication(username, password);  
-      expect(jwt).toBeDefined();
-
-      const { user } = await User.getUser(jwt);
+    test('Fail to delete an unknown user id, leaving existing users alone', async () => {
+      await expect(User.deleteUser('00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);
+      const { userId } = await User.createUserAuthentication(username, password);
+      const { user } = await User.getUser(userId);
       checkUser(user, username, email);
     });
-    test('Fail to delete user with valid JWT but already deleted user', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      expect(jwt).toBeDefined();
+    test('Fail to delete user with their user id but already deleted user', async () => {
+      const { userId } = await User.createUserAuthentication(username, password);
+      expect(userId).toBeDefined();
       
-      await User.deleteUser(jwt);
-      await expect(User.deleteUser(jwt)).rejects.toThrow(UserNotFoundError);
-    });
-    test('Fail to delete user with empty JWT', async () => {
-      await expect(User.deleteUser('')).rejects.toThrow(InvalidJWTError);
+      await User.deleteUser(userId);
+      await expect(User.deleteUser(userId)).rejects.toThrow(UserNotFoundError);
     });
   });
   describe('Profile Photo Metadata', () => {
@@ -659,9 +636,9 @@ describe('User Model Tests', () => {
     });
 
     test('Save profile photo metadata', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
+      const { userId } = await User.createUserAuthentication(username, password);
 
-      const { photoMetadata } = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+      const { photoMetadata } = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', userId);
 
       expect(photoMetadata).toMatchObject({
         filename: 'profile.jpg',
@@ -669,40 +646,39 @@ describe('User Model Tests', () => {
         trait: Trait.PROFILE
       });
       expect(photoMetadata.id).toEqual(expect.any(String));
-      expect(photoMetadata.userId).toEqual((await User.getUser(jwt)).user.id);
+      expect(photoMetadata.userId).toEqual((await User.getUser(userId)).user.id);
     });
 
     test('Get profile photo metadata', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
-      const savedPhoto = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', jwt);
+      const { userId } = await User.createUserAuthentication(username, password);
+      const savedPhoto = await PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', userId);
 
-      const { photoMetadata } = await PhotoData.getProfilePhotoMetadata(jwt);
+      const { photoMetadata } = await PhotoData.getProfilePhotoMetadata(userId);
 
       expect(photoMetadata).toEqual(savedPhoto.photoMetadata);
     });
 
-    test('Fail to save profile photo metadata with invalid JWT', async () => {
+    test('Fail to save profile photo metadata for an unknown user id', async () => {
       await expect(
-        PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', 'invalidJWT')
-      ).rejects.toThrow(InvalidJWTError);
+        PhotoData.saveProfilePhotoMetadata('profile.jpg', 1024, '/path/to/profile.jpg', '00000000-0000-0000-0000-000000000000')
+      ).rejects.toThrow(UserNotFoundError);
     });
 
     test('Fail to get profile photo metadata when none exists', async () => {
-      const { jwt } = await User.createUserAuthentication(username, password);
+      const { userId } = await User.createUserAuthentication(username, password);
 
-      await expect(PhotoData.getProfilePhotoMetadata(jwt)).rejects.toThrow(PhotoMetadataNotFoundError);
+      await expect(PhotoData.getProfilePhotoMetadata(userId)).rejects.toThrow(PhotoMetadataNotFoundError);
     });
 
-    test('Fail to get profile photo metadata with invalid JWT', async () => {
-      await expect(PhotoData.getProfilePhotoMetadata('invalidJWT')).rejects.toThrow(InvalidJWTError);
+    test('Fail to get profile photo metadata for an unknown user id', async () => {
+      await expect(PhotoData.getProfilePhotoMetadata('00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);
     });
   });
 
   describe('Admin User Tests', () => {
     const adminUsername = 'adminuser123';
     const adminEmail = 'admin@example.com';
-    let adminJwt: string;
-    let regularJwt: string;
+    let adminUserId: string;
     let regularUserId: string;
 
     const createUser = async (name: string, mail: string) => {
@@ -717,8 +693,7 @@ describe('User Model Tests', () => {
       await UserRepository.updateById(admin.id, { role: Role.Admin });
       const regular = await createUser(username, email);
       regularUserId = regular.id;
-      adminJwt = (await User.createUserAuthentication(adminUsername, password)).jwt;
-      regularJwt = (await User.createUserAuthentication(username, password)).jwt;
+      adminUserId = admin.id;
     });
     afterEach(async () => {
       await cleanUpTestDB();
@@ -726,111 +701,101 @@ describe('User Model Tests', () => {
 
     describe('adminFindUsers', () => {
       test('Admin can list all users', async () => {
-        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
+        const { users, count } = await User.adminFindUsers(adminUserId, 0, 10);
         expect(users).toHaveLength(2);
         expect(users.map(u => u.username).sort()).toEqual([adminUsername, username].sort());
         expect(count).toBe(2);
       });
       test('Respects limit', async () => {
-        const { users, count } = await User.adminFindUsers(adminJwt, 0, 1);
+        const { users, count } = await User.adminFindUsers(adminUserId, 0, 1);
         expect(users).toHaveLength(1);
         expect(users[0]?.username).toBe(adminUsername);
         expect(count).toBe(2);
       });
       test('Respects offset', async () => {
-        const all = await User.adminFindUsers(adminJwt, 0, 10);
-        const rest = await User.adminFindUsers(adminJwt, 1, 10);
+        const all = await User.adminFindUsers(adminUserId, 0, 10);
+        const rest = await User.adminFindUsers(adminUserId, 1, 10);
         expect(all.count).toBe(2);
         expect(rest.users).toHaveLength(1);
         expect(rest.count).toBe(2);
         expect(all.users.map(u => u.id)).toContain(rest.users[0]!.id);
       });
       test('Invalid offset or limit', async () => {
-        await expect(User.adminFindUsers(adminJwt, -1, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, 0, 0)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, 0, 101)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, 1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, 0, 1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, -1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
-        await expect(User.adminFindUsers(adminJwt, 0, -1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, -1, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, 0, 0)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, 0, 101)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, 1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, 0, 1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, -1.5, 10)).rejects.toThrow(InvalidOffsetOrLimitError);
+        await expect(User.adminFindUsers(adminUserId, 0, -1.5)).rejects.toThrow(InvalidOffsetOrLimitError);
       });
       test('Returns empty list when offset exceeds user count', async () => {
-        const result = await User.adminFindUsers(adminJwt, 10, 10);
+        const result = await User.adminFindUsers(adminUserId, 10, 10);
         expect(result.users).toEqual([]);
         expect(result.count).toBe(2);
       });
-      test('Fail with invalid JWT', async () => {
-        await expect(User.adminFindUsers('invalidJWT', 0, 10)).rejects.toThrow(InvalidJWTError);
-      });
-      test('Fail when JWT user no longer exists', async () => {
+      test('Fail when the acting user no longer exists', async () => {
         await UserRepository.deleteById(regularUserId);
-        await expect(User.adminFindUsers(regularJwt, 0, 10)).rejects.toThrow(UserNotFoundError);
+        await expect(User.adminFindUsers(regularUserId, 0, 10)).rejects.toThrow(UserNotFoundError);
       });
       test('Fail for non-admin user', async () => {
-        await expect(User.adminFindUsers(regularJwt, 0, 10)).rejects.toThrow(InvalidRoleError);
+        await expect(User.adminFindUsers(regularUserId, 0, 10)).rejects.toThrow(InvalidRoleError);
       });
     });
 
     describe('adminSearchUsers', () => {
       test('Admin can search for a partial username', async () => {
-        const { users } = await User.adminSearchUsers(adminJwt, 'stuser');
+        const { users } = await User.adminSearchUsers(adminUserId, 'stuser');
         expect(users.map(u => u.id)).toEqual([regularUserId]);
         expect(users[0]?.username).toBe(username);
       });
       test('Returns all users matching the query', async () => {
-        const { users } = await User.adminSearchUsers(adminJwt, 'user123');
+        const { users } = await User.adminSearchUsers(adminUserId, 'user123');
         expect(users.map(u => u.username).sort()).toEqual([adminUsername, username].sort());
       });
       test('Fail with query shorter than 3 characters', async () => {
-        await expect(User.adminSearchUsers(adminJwt, 'us')).rejects.toThrow(InvalidQueryError);
+        await expect(User.adminSearchUsers(adminUserId, 'us')).rejects.toThrow(InvalidQueryError);
       });
       test('Returns no users when no username matches', async () => {
-        await expect(User.adminSearchUsers(adminJwt, 'missing')).resolves.toEqual({ users: [] });
+        await expect(User.adminSearchUsers(adminUserId, 'missing')).resolves.toEqual({ users: [] });
       });
       test('Searches usernames rather than emails', async () => {
-        await expect(User.adminSearchUsers(adminJwt, '@example.com')).resolves.toEqual({ users: [] });
+        await expect(User.adminSearchUsers(adminUserId, '@example.com')).resolves.toEqual({ users: [] });
       });
       test('Fail with empty query', async () => {
-        await expect(User.adminSearchUsers(adminJwt, '')).rejects.toThrow(InvalidQueryError);
+        await expect(User.adminSearchUsers(adminUserId, '')).rejects.toThrow(InvalidQueryError);
       });
-      test('Fail with invalid JWT', async () => {
-        await expect(User.adminSearchUsers('invalidJWT', 'user')).rejects.toThrow(InvalidJWTError);
-      });
-      test('Fail when JWT user no longer exists', async () => {
+      test('Fail when the acting user no longer exists', async () => {
         await UserRepository.deleteById(regularUserId);
-        await expect(User.adminSearchUsers(regularJwt, 'user')).rejects.toThrow(UserNotFoundError);
+        await expect(User.adminSearchUsers(regularUserId, 'user')).rejects.toThrow(UserNotFoundError);
       });
       test('Fail for non-admin user', async () => {
-        await expect(User.adminSearchUsers(regularJwt, 'user')).rejects.toThrow(InvalidRoleError);
+        await expect(User.adminSearchUsers(regularUserId, 'user')).rejects.toThrow(InvalidRoleError);
       });
     });
 
     describe('adminDeleteUser', () => {
       test('Admin can delete a user', async () => {
-        await expect(User.adminDeleteUser(adminJwt, regularUserId)).resolves.toEqual({ user: expect.any(Object) });
+        await expect(User.adminDeleteUser(adminUserId, regularUserId)).resolves.toEqual({ user: expect.any(Object) });
         expect(await UserRepository.findOneById(regularUserId)).toBeNull();
-        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
+        const { users, count } = await User.adminFindUsers(adminUserId, 0, 10);
         expect(users.map(u => u.username)).toEqual([adminUsername]);
         expect(count).toBe(1);
       });
       test('Deleting a non-existent user does not throw', async () => {
         await expect(
-          User.adminDeleteUser(adminJwt, '00000000-0000-0000-0000-000000000000')
+          User.adminDeleteUser(adminUserId, '00000000-0000-0000-0000-000000000000')
         ).resolves.toEqual({ user: null });
-        const { users, count } = await User.adminFindUsers(adminJwt, 0, 10);
+        const { users, count } = await User.adminFindUsers(adminUserId, 0, 10);
         expect(users).toHaveLength(2);
         expect(count).toBe(2);
       });
-      test('Fail with invalid JWT', async () => {
-        await expect(User.adminDeleteUser('invalidJWT', regularUserId)).rejects.toThrow(InvalidJWTError);
-        expect(await UserRepository.findOneById(regularUserId)).not.toBeNull();
-      });
-      test('Fail when JWT user no longer exists', async () => {
+      test('Fail when the acting user no longer exists', async () => {
         await UserRepository.deleteById(regularUserId);
-        await expect(User.adminDeleteUser(regularJwt, regularUserId)).rejects.toThrow(UserNotFoundError);
+        await expect(User.adminDeleteUser(regularUserId, regularUserId)).rejects.toThrow(UserNotFoundError);
       });
       test('Fail for non-admin user', async () => {
-        await expect(User.adminDeleteUser(regularJwt, regularUserId)).rejects.toThrow(InvalidRoleError);
+        await expect(User.adminDeleteUser(regularUserId, regularUserId)).rejects.toThrow(InvalidRoleError);
         expect(await UserRepository.findOneById(regularUserId)).not.toBeNull();
       });
     });

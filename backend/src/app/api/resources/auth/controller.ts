@@ -25,14 +25,14 @@ class AuthController {
         const { username, email, emailVerificationCode, password } = req.body;
         const { user } = await User.createNewUser(username, email, emailVerificationCode, password);
         
-        LoggingService.info(`New user registered with email: ${email} and id: ${user.id}`);
+        // Log the id only: logs are copied and kept, so they shouldn't hold email addresses.
+        LoggingService.info(`New user registered with id: ${user.id}`);
         return res.status(200).json({ message: "User registered successfully" });
     }
 
     public static async login(req: Request, res: Response): Promise<Response> {
         const { username, password } = req.body;
-        const { jwt: accessToken } = await User.createUserAuthentication(username, password);
-        const userId = TokenService.verifyAccessToken(accessToken);
+        const { jwt: accessToken, userId } = await User.createUserAuthentication(username, password);
         const { refreshToken } = await Session.create(userId);
 
         setRefreshCookie(res, refreshToken);
@@ -62,7 +62,7 @@ class AuthController {
             throw error;
         }
         try {
-            await User.getUser(session.accessToken);
+            await User.getUser(session.userId);
         } catch (error) {
             if (error instanceof UserNotFoundError) {
                 await Session.revokeAll(session.userId);
