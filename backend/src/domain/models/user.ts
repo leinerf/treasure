@@ -1,6 +1,5 @@
 import { Role, type User as UserEntity } from "./entity/User.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
-import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import { Verification } from "./Verification.js";
 import bcrypt from "bcrypt";
@@ -15,11 +14,9 @@ import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
 import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
 import { InvalidCredentialsError } from "../errors/InvalidCredentialsError.js";
 import { InvalidPasswordResetCodeError } from "../errors/InvalidPasswordResetCode.js";
-import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
 import { UserExistsError } from "../errors/UserExistsError.js";
 import { UserError } from "../errors/UserError.js";
 import { UserNotFoundError } from "../errors/UserNotFoundError.js";
-import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
 import { InvalidRoleError } from "../errors/InvalidRoleError.js";
 import { InvalidOffsetOrLimitError } from "../errors/InvalidOffsetOrLimitError.js";
@@ -50,14 +47,8 @@ class User {
             throw new UserExistsError("User with this username already exists: " + username);
         }
 
-        const existingEmailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, email);
-        if(!existingEmailCode){
-            throw new EmailVerificationNotFoundError(email);
-        }
-        
-        if(ValidationService.isExpired(existingEmailCode.expiresAt)){
-            throw new InvalidEmailVerificationError("Email verification code has expired for email: " + email + " at " + existingEmailCode.expiresAt + ". Request a new verification code.");
-        }
+        // Counts the attempt, and rejects a wrong, expired or over-guessed code.
+        const existingEmailCode: EmailVerification = await Verification.checkEmailCode(email, emailVerificationCode);
         
         const hashedPassword = await User.hash(password);
         if(!hashedPassword){
@@ -182,14 +173,8 @@ class User {
             throw new UserExistsError("That email is already used by another account");
         }
 
-        const emailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, newEmail);
-        if(!emailCode) {
-            throw new EmailVerificationNotFoundError(newEmail);
-        }
-        // Checked here, not left to the hourly cleanup: a code is only good for its 10 minutes.
-        if(ValidationService.isExpired(emailCode.expiresAt)){
-            throw new InvalidEmailVerificationError("Email verification code has expired. Request a new verification code.");
-        }
+        // Counts the attempt, and rejects a wrong, expired or over-guessed code.
+        const emailCode: EmailVerification = await Verification.checkEmailCode(newEmail, emailVerificationCode);
         const updatedUser = await UserRepository.updateEmailAndDeleteEmailVerification(existingUser.id, newEmail, emailCode.id);
         if(!updatedUser){
             throw new UserError("Failed to update user email");
@@ -287,7 +272,7 @@ class User {
         return User.dummyHash;
     }
 
-        private static async hash(token: string): Promise<string | null> {
+    private static async hash(token: string): Promise<string | null> {
         try {
             if(!config.salt_rounds){
                 return null;

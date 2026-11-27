@@ -6,6 +6,11 @@ import { EmailVerificationRepository } from "../../infra/db/repository/EmailVeri
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
+import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
+import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
+
+/** Submissions allowed per email verification code; the 5th wrong one deletes it. */
+export const EMAIL_CODE_MAX_ATTEMPTS = 5;
 
 // 256 bits of randomness: guessing a token is infeasible, so submissions need no per-account limit.
 const PASSWORD_RESET_TOKEN_BYTES = 32;
@@ -14,6 +19,45 @@ const PASSWORD_RESET_EMAILS_PER_WINDOW = 3;
 const PASSWORD_RESET_EMAIL_WINDOW_MS = 60 * 60 * 1000;
 
 export class Verification {
+    /**
+     * Checks a submitted email verification code and returns it if it's right. Every submission
+     * is counted before the comparison, so at most EMAIL_CODE_MAX_ATTEMPTS are ever compared, even
+     * when many arrive at once. With 900,000 possible codes, that leaves a guesser about 5 in
+     * 900,000 per code, and each new code sends the owner another email. The caller still deletes
+     * the code once it's used.
+     */
+    public static async checkEmailCode(email: string, code: string): Promise<EmailVerification> {
+        const attempt = await EmailVerificationRepository.recordAttempt(email);
+        if (!attempt) {
+            throw new EmailVerificationNotFoundError(email);
+        }
+        const { verification, attempts } = attempt;
+        if (ValidationService.isExpired(verification.expiresAt)) {
+            await EmailVerificationRepository.deleteById(verification.id);
+            throw new InvalidEmailVerificationError("Email verification code has expired. Request a new verification code.");
+        }
+        if (attempts > EMAIL_CODE_MAX_ATTEMPTS) {
+            await EmailVerificationRepository.deleteById(verification.id);
+            throw new InvalidEmailVerificationError("Too many incorrect codes. Request a new verification code.");
+        }
+        if (!Verification.codesMatch(code, verification.code)) {
+            if (attempts === EMAIL_CODE_MAX_ATTEMPTS) {
+                await EmailVerificationRepository.deleteById(verification.id);
+                throw new InvalidEmailVerificationError("Too many incorrect codes. Request a new verification code.");
+            }
+            throw new EmailVerificationNotFoundError(email);
+        }
+        return verification;
+    }
+
+    /** Compares in constant time, so response time doesn't reveal how many digits were right. */
+    private static codesMatch(submitted: unknown, expected: string): boolean {
+        if (typeof submitted !== "string" || submitted.length !== expected.length) {
+            return false;
+        }
+        return crypto.timingSafeEqual(Buffer.from(submitted), Buffer.from(expected));
+    }
+
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
         email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidEmail(email)){

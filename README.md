@@ -92,6 +92,13 @@ Emails are stored and compared in lowercase with surrounding spaces removed, so
 check constraint rejects any email that is not lowercase; the migration that adds
 it lowercases existing emails and stops if two accounts differ only by case.
 
+Registration and email changes confirm the address with a 6-digit code that
+expires after 10 minutes. Each code allows 5 submissions, right or wrong; the
+5th wrong one deletes it and the user requests a new code. Submissions are
+counted before the code is compared, so simultaneous guesses can't get extra
+tries, and codes are compared in constant time. That leaves a guesser about 5 in
+900,000 per code, and each new code sends the owner another email.
+
 Password resets use emailed links. Requesting a reset always returns the same
 response, whether or not an account uses the email, so the endpoint does not
 reveal which emails are registered. The response is sent before the account is

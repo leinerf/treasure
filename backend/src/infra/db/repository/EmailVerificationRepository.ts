@@ -3,7 +3,7 @@ import { EmailVerificationRepository as AbstractEmailVerificationRepository } fr
 import { EmailVerification } from "../../../infra/db/schema/EmailVerification.js"
 import { type Comparison as ComparisonType, Comparison } from "./Comparison.js";
 import { db } from "../../../infra/db/index.js";
-import { and, eq, not, lt, lte, gt, gte } from "drizzle-orm";
+import { and, eq, not, lt, lte, gt, gte, sql } from "drizzle-orm";
 
 export class EmailVerificationRepository extends AbstractEmailVerificationRepository {
     public static override async findOneByEmail(email: string): Promise<EmailVerificationEntity | null> {
@@ -55,6 +55,19 @@ export class EmailVerificationRepository extends AbstractEmailVerificationReposi
     public static override async deleteExpired(now: Date): Promise<number> {
         const deleted = await db.delete(EmailVerification).where(lt(EmailVerification.expiresAt, now)).returning({ id: EmailVerification.id });
         return deleted.length;
+    }
+
+    public static override async recordAttempt(email: string): Promise<{ verification: EmailVerificationEntity; attempts: number } | null> {
+        const result = await db.update(EmailVerification)
+            .set({ attempts: sql`${EmailVerification.attempts} + 1` })
+            .where(eq(EmailVerification.email, email))
+            .returning({ ...EmailVerificationRepository.buildReturning(), attempts: EmailVerification.attempts });
+        const row = result[0];
+        if (!row) {
+            return null;
+        }
+        const { attempts, ...verification } = row;
+        return { verification: verification as EmailVerificationEntity, attempts: attempts as number };
     }
 
     public static override async deleteAll(): Promise<void> {

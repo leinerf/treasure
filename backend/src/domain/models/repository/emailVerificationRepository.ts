@@ -41,4 +41,12 @@ export class EmailVerificationRepository {
     public static async deleteExpired(now: Date): Promise<number> {
         throw new Error("Method not implemented.");
     }
+    /* eslint-disable no-unused-vars */
+    /**
+     * Counts one submission against this email's code and returns the code with the new count,
+     * or null if the email has no code. Atomic, so concurrent submissions each get their own count.
+     */
+    public static async recordAttempt(email: string): Promise<{ verification: EmailVerification; attempts: number } | null> {
+        throw new Error("Method not implemented.");
+    }
 }

@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "083ca35c-19a8-4ad2-83ef-34474f0b066f",
+  "prevIds": [
+    "c227dff8-68f0-4cc2-b5dd-50f792dcffb6"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "email_verification",
+        "attempts"
+      ],
+      "writes": [
+        "s|col|public.email_verification.attempts",
+        "n|col|public.email_verification.attempts",
+        "e|col|public.email_verification.attempts"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_verification",
+        "name": "attempts",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

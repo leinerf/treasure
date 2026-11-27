@@ -95,6 +95,42 @@ describe('User Model Tests', () => {
     });
   });
 
+  describe('Email code guess limit', () => {
+    beforeEach(async () => { await cleanUpTestDB(); });
+    afterEach(async () => { await cleanUpTestDB(); });
+    const wrongCode = (code: string) => (code === '000000' ? '111111' : '000000');
+
+    test('After 5 wrong codes, even the right code is refused and a new code is needed', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      for (let i = 0; i < 4; i++) {
+        await expect(User.createNewUser(username, email, wrongCode(emailCode.code), password)).rejects.toThrow(EmailVerificationNotFoundError);
+      }
+      await expect(User.createNewUser(username, email, wrongCode(emailCode.code), password))
+        .rejects.toThrow('Too many incorrect codes. Request a new verification code.');
+      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(EmailVerificationNotFoundError);
+
+      const { emailCode: freshCode } = await Verification.createEmailVerificationCode(email);
+      await expect(User.createNewUser(username, email, freshCode.code, password)).resolves.toMatchObject({ user: { email } });
+    });
+
+    test('The right code within 5 attempts still works', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      for (let i = 0; i < 4; i++) {
+        await expect(User.createNewUser(username, email, wrongCode(emailCode.code), password)).rejects.toThrow(EmailVerificationNotFoundError);
+      }
+      await expect(User.createNewUser(username, email, emailCode.code, password)).resolves.toMatchObject({ user: { email } });
+    });
+
+    test('Many simultaneous wrong guesses use up the code, so the right one no longer works', async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      const guesses = Array.from({ length: 21 }, (_, i) => String(100000 + i)).filter((code) => code !== emailCode.code).slice(0, 20);
+      const results = await Promise.allSettled(guesses.map((code, i) => User.createNewUser(`racer${i}`, email, code, password)));
+
+      expect(results.every((result) => result.status === 'rejected')).toBe(true);
+      expect(await EmailVerificationRepository.findOneByEmail(email)).toBeNull();
+      await expect(User.createNewUser(username, email, emailCode.code, password)).rejects.toThrow(EmailVerificationNotFoundError);
+    });
+  });
   describe('Create New User Tests', () => {
     let emailCode: EmailVerification | null = null;
     beforeEach(async () => {
