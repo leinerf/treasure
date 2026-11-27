@@ -32,7 +32,26 @@ describe("ValidationService", () => {
         ["Password!", false],
         ["Password1", false],
         ["Abc1!", false],
-        ["", false]
+        ["", false],
+        // Any of the 32 common symbols counts, not just @$!%*?&.
+        ["Password#123", true],
+        ["Password_123", true],
+        ["Password-123", true],
+        ["Pass.word123", true],
+        ["Pass^word{1}", true],
+        ['Pass"word\\1', true],
+        ["Pass~word1`", true],
+        // No spaces anywhere.
+        ["Pass word!123", false],
+        [" Password!123", false],
+        ["Password!123 ", false],
+        ["Password!123\t", false],
+        // No characters outside printable ASCII, so each character is one byte.
+        ["Pässword!123", false],
+        ["Password!123🙂", false],
+        // 8 to 72 characters: 72 is the most bcrypt uses.
+        ["Aa1!" + "x".repeat(68), true],
+        ["Aa1!" + "x".repeat(69), false],
     ])("validates password %s", (value, valid) => {
         expect(ValidationService.isValidPassword(value)).toBe(valid);
     });
