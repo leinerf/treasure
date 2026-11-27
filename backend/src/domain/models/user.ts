@@ -172,10 +172,21 @@ class User {
             || !await ValidationService.matchesPassword(currentPassword, existingUser.password)){
             throw new InvalidPasswordError("Current password is incorrect");
         }
+        // After the password check, so only the account owner can learn whether an email is taken,
+        // and before the code is used, so a rejected change doesn't consume it. Without this, the
+        // database's unique constraint would fail the update with a 500.
+        const userWithEmail: UserEntity | null = await UserRepository.findOneByEmail(newEmail);
+        if(userWithEmail && userWithEmail.id !== existingUser.id){
+            throw new UserExistsError("That email is already used by another account");
+        }
 
         const emailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, newEmail);
         if(!emailCode) {
             throw new EmailVerificationNotFoundError(newEmail);
+        }
+        // Checked here, not left to the hourly cleanup: a code is only good for its 10 minutes.
+        if(ValidationService.isExpired(emailCode.expiresAt)){
+            throw new InvalidEmailVerificationError("Email verification code has expired. Request a new verification code.");
         }
         const updatedUser = await UserRepository.updateEmailAndDeleteEmailVerification(existingUser.id, newEmail, emailCode.id);
         if(!updatedUser){

@@ -322,6 +322,35 @@ describe('User Model Tests', () => {
       const newEmail = 'newemail@example.com';
       await expect(User.updateEmail(newEmail, 'invalidcode', password, userId)).rejects.toThrow(EmailVerificationNotFoundError);
     });
+    test('Rejects an email used by another account without changing anything or using the code', async () => {
+      const otherEmail = 'other@example.com';
+      const { emailCode: otherCode } = await Verification.createEmailVerificationCode(otherEmail);
+      await User.createNewUser('otheruser', otherEmail, otherCode.code, password);
+      const { userId } = await User.createUserAuthentication(username, password);
+      const { emailCode } = await Verification.createEmailVerificationCode(otherEmail);
+
+      await expect(User.updateEmail(otherEmail, emailCode.code, password, userId)).rejects.toThrow(UserExistsError);
+
+      expect((await User.getUser(userId)).user.email).toBe(email);
+      expect(await EmailVerificationRepository.findOneByCodeAndEmail(emailCode.code, otherEmail)).not.toBeNull();
+    });
+    test('Allows re-entering your own current email', async () => {
+      const { userId } = await User.createUserAuthentication(username, password);
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      const { user } = await User.updateEmail(email, emailCode.code, password, userId);
+      expect(user.email).toBe(email);
+    });
+    test('Rejects an expired code without changing the email', async () => {
+      const { userId } = await User.createUserAuthentication(username, password);
+      const newEmail = 'newemail@example.com';
+      const { emailCode } = await Verification.createEmailVerificationCode(newEmail);
+      await EmailVerificationRepository.updateById(emailCode.id, { ...emailCode, expiresAt: new Date(Date.now() - 1000) });
+
+      await expect(User.updateEmail(newEmail, emailCode.code, password, userId)).rejects.toThrow(InvalidEmailVerificationError);
+
+      const { user } = await User.getUser(userId);
+      expect(user.email).toBe(email);
+    });
     test.each([
       ['a wrong', 'Wrong!Password123'],
       ['an empty', ''],
