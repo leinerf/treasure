@@ -2,19 +2,11 @@ import { type PasswordReset } from "../entity/PasswordReset.js";
 
 export class PasswordResetRepository {
     /* eslint-disable no-unused-vars */
-    public static async findOneByEmail(email: string): Promise<PasswordReset | null> {
+    public static async findOneByTokenHash(tokenHash: string): Promise<PasswordReset | null> {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
-    public static async findOneByCode(code: string): Promise<PasswordReset | null> {
-        throw new Error("Method not implemented.");
-    }
-    /* eslint-disable no-unused-vars */
-    public static async findOneByCodeAndEmail(code: string, email: string): Promise<PasswordReset | null> {
-        throw new Error("Method not implemented.");
-    }
-    /* eslint-disable no-unused-vars */
-    public static async save(entity: Omit<PasswordReset, "id">): Promise<PasswordReset> {
+    public static async saveIfUnderLimit(entity: Omit<PasswordReset, "id" | "createdAt">, limit: number, windowMs: number): Promise<PasswordReset | null> {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
@@ -27,6 +19,11 @@ export class PasswordResetRepository {
     }
     /* eslint-disable no-unused-vars */
     public static async deleteAll(): Promise<void> {
+        throw new Error("Method not implemented.");
+    }
+    /* eslint-disable no-unused-vars */
+    /** Deletes rows whose expires_at is before `now`; returns how many were deleted. */
+    public static async deleteExpired(now: Date): Promise<number> {
         throw new Error("Method not implemented.");
     }
 }

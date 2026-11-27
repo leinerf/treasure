@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import './assets/styles/index.css'
 import Navbar from './components/Navbar'
@@ -18,19 +18,24 @@ function App() {
     const { user: contextUser } = useContext(UserAuthContext);
     const [user, setUser] = useState<(UserAuth | null)>(contextUser);
     const [loading, setLoading] = useState(true);
-    const authenticate = ({username, email, role, profile}: {username?: string, email?: string, role?: Role, profile?: File | string}) => {
-        setUser({ 
-            username: username || user?.username || "", 
-            email: email || user?.email || "", 
-            role: role || user?.role || "user",
-            profile: profile || user?.profile || DogProfile
-        })
-    }
+    const authenticate = useCallback(({username, email, role, profile}: {username?: string, email?: string, role?: Role, profile?: File | string}) => {
+        setUser((currentUser) => ({
+            username: username || currentUser?.username || "",
+            email: email || currentUser?.email || "",
+            role: role || currentUser?.role || "user",
+            profile: profile || currentUser?.profile || DogProfile
+        }));
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
+        InternalAPI.clearSession();
         setUser(null);
-    }
+    }, []);
 
+    useEffect(() => {
+        InternalAPI.setUnauthorizedHandler(logout);
+        return () => InternalAPI.setUnauthorizedHandler(null);
+    }, [logout]);
 
     useEffect(() => {
         const getUser = async () => {
@@ -46,7 +51,7 @@ function App() {
             authenticate({username: data?.username, email: data?.email, role: data?.role, profile})
         }
         getUser().finally(() => setLoading(false));
-    }, [contextUser]);
+    }, [authenticate, logout]);
     
     
     return (

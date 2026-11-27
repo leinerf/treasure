@@ -1,0 +1,56 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "696c78c3-b1eb-466c-ae78-1d4eb835cd2a",
+  "prevIds": [
+    "5f83f1ca-3002-4708-ad18-ae6ea1d266ce"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "refresh_token"
+      ],
+      "writes": [
+        "s|fk|public.refresh_token.refresh_token_user_id_user_id_fkey",
+        "n|fk|public.refresh_token.refresh_token_user_id_user_id_fkey",
+        "e|fk|public.refresh_token.refresh_token_user_id_user_id_fkey",
+        "n|con|public.refresh_token.refresh_token_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.refresh_token",
+        "n|sch|public",
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.refresh_token.user_id",
+        "n|col|public.user.id",
+        "e|uniqueness|public.user.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "refresh_token",
+        "name": "refresh_token_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    }
+  ]
+}

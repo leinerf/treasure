@@ -7,6 +7,7 @@ import type { Comparison as ComparisonType } from "./Comparison.js"
 import { EmailVerification } from "../../../infra/db/schema/EmailVerification.js"
 import { UserRepository as AbstractUserRepository } from "../../../domain/models/repository/UserRepository.js";
 import { PasswordReset } from "../schema/PasswordReset.js";
+import { PasswordResetCodeNotFoundError } from "../../../domain/errors/PasswordResetCodeNotFound.js";
 
 /**
  * Repository class for managing users in the database.
@@ -116,17 +117,22 @@ export class UserRepository extends AbstractUserRepository {
         return result[0] || null;
     }
 
-    public static override async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string): Promise<UserEntity | null> {
+    public static override async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string, email: string): Promise<UserEntity | null> {
         const result = await db.transaction(async (trx) => {
             const deletedPasswordResetCode = await trx.delete(PasswordReset).where(
-                eq(PasswordReset.id, passwordResetCodeId)
+                and(eq(PasswordReset.id, passwordResetCodeId), eq(PasswordReset.userId, id), eq(PasswordReset.email, email))
             ).returning({ id: PasswordReset.id });
             if (deletedPasswordResetCode.length === 0) {
-                throw new Error(`Password reset code with id ${passwordResetCodeId} not found`);
+                throw new PasswordResetCodeNotFoundError("Invalid email or password reset code");
             }
             const updatedUser = await trx.update(User).set({ password: newPassword }).where(
-                eq(User.id, id)
+                and(eq(User.id, id), eq(User.email, email))
             ).returning(UserRepository.buildReturning());
+            if (updatedUser.length === 0) {
+                throw new PasswordResetCodeNotFoundError("Invalid email or password reset code");
+            }
+            // Any other outstanding reset links for this account stop working once one is used.
+            await trx.delete(PasswordReset).where(eq(PasswordReset.userId, id));
             return updatedUser;
         });
         return result[0] || null;

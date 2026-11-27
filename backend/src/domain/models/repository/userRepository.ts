@@ -59,7 +59,7 @@ export class UserRepository {
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */
-    public static async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string): Promise<UserEntity | null>{
+    public static async updatePasswordAndDeletePasswordResetCode(id: string, newPassword: string, passwordResetCodeId: string, email: string): Promise<UserEntity | null>{
         throw new Error("Method not implemented.");
     }
     /* eslint-disable no-unused-vars */

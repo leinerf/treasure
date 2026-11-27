@@ -1,6 +1,7 @@
 import AuthController from "./controller.js";
 import { Router } from "express";
 import { createRoutes } from "../util/index.js";
+import { loginFailureLimit, passwordResetRequestLimit, verificationEmailRequestLimit } from "../../middleware/rateLimit.js";
 
 const router = Router();
 const resource = {
@@ -10,6 +11,7 @@ const resource = {
             path: "/create-verification-email",
             method: "post",
             controller: AuthController.createVerificationEmail,
+            middlewares: [verificationEmailRequestLimit],
         },
         {
             path: "/register",
@@ -20,9 +22,10 @@ const resource = {
             path: "/create-password-reset",
             method: "post",
             controller: AuthController.createPasswordReset,
+            middlewares: [passwordResetRequestLimit],
         },
         {
-            path: "/reset-password/:id",
+            path: "/reset-password",
             method: "post",
             controller: AuthController.resetPassword,
         },
@@ -30,11 +33,22 @@ const resource = {
             path: "/login",
             method: "post",
             controller: AuthController.login,
+            middlewares: [loginFailureLimit],
         },
         {
             path: "/logout",
             method: "post",
             controller: AuthController.logout,
+        },
+        {
+            path: "/status",
+            method: "get",
+            controller: AuthController.status,
+        },
+        {
+            path: "/refresh-token",
+            method: "post",
+            controller: AuthController.refreshToken,
         }
     ]
 };

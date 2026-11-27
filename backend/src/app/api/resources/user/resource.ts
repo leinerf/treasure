@@ -1,8 +1,10 @@
 import UserController from "./controller.js";
 import { auth } from "../../middleware/auth.js";
+import { requireRole } from "../../middleware/requireRole.js";
+import { Role } from "../../../../domain/models/entity/User.js";
 import { Router } from "express";
 import { createRoutes } from "../util/index.js";
-import upload, { bufferUpload } from "../../middleware/fileUpload.js";
+import { bufferUploadSingle, uploadSingleImage } from "../../middleware/fileUpload.js";
 
 
 const router = Router();
@@ -20,7 +22,7 @@ const resource = {
             path: "/all",
             method: "get",
             controller: UserController.getUsers,
-            middlewares: [auth]
+            middlewares: [auth, requireRole(Role.Admin)]
         },
         {
             path: "/username",
@@ -44,7 +46,7 @@ const resource = {
             path: "/profile-picture",
             method: "post",
             controller: UserController.uploadProfilePicture,
-            middlewares: [auth, upload.single("profile")]
+            middlewares: [auth, uploadSingleImage("profile")]
         },
         {
             path: "/profile-picture",
@@ -56,19 +58,19 @@ const resource = {
             path: "/:userId",
             method: "delete",
             controller: UserController.deleteUser,
-            middlewares: [auth]
+            middlewares: [auth, requireRole(Role.Admin)]
         },
         {
             path: "/search",
             method: "get",
             controller: UserController.searchUsers,
-            middlewares: [auth]
+            middlewares: [auth, requireRole(Role.Admin)]
         },
         {
             path: "/profile-picture/aws",
             method: "post",
             controller: UserController.uploadProfilePictureToAWS,
-            middlewares: [auth, bufferUpload.single("profile")]
+            middlewares: [auth, bufferUploadSingle("profile")]
         },
         {
             path: "/profile-picture/aws",

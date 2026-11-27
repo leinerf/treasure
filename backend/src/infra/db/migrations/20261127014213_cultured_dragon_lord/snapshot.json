@@ -1,0 +1,115 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "5c679da9-a6f4-4d5c-b125-4b9156d9a732",
+  "prevIds": [
+    "083ca35c-19a8-4ad2-83ef-34474f0b066f"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "email_verification",
+        "send_count"
+      ],
+      "writes": [
+        "s|col|public.email_verification.send_count",
+        "n|col|public.email_verification.send_count",
+        "e|col|public.email_verification.send_count"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "email_verification",
+        "send_window_started_at"
+      ],
+      "writes": [
+        "s|col|public.email_verification.send_window_started_at",
+        "n|col|public.email_verification.send_window_started_at",
+        "e|col|public.email_verification.send_window_started_at"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "email_verification"
+      ],
+      "writes": [
+        "s|uq|public.email_verification.email_verification_email_key",
+        "n|uq|public.email_verification.email_verification_email_key",
+        "e|uq|public.email_verification.email_verification_email_key",
+        "n|con|public.email_verification.email_verification_email_key",
+        "n|rel|public.email_verification_email_key"
+      ],
+      "reads": [
+        "n|tbl|public.email_verification",
+        "n|sch|public",
+        "n|col|public.email_verification.email"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_verification",
+        "name": "send_count",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_verification",
+        "name": "send_window_started_at",
+        "type": "timestamp",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_verification",
+        "name": "email_verification_email_key",
+        "nameExplicit": false,
+        "columns": [
+          "email"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}

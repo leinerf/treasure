@@ -1,0 +1,42 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c227dff8-68f0-4cc2-b5dd-50f792dcffb6",
+  "prevIds": [
+    "696c78c3-b1eb-466c-ae78-1d4eb835cd2a"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "user"
+      ],
+      "writes": [
+        "s|ck|public.user.user_email_lowercase",
+        "n|ck|public.user.user_email_lowercase",
+        "e|ck|public.user.user_email_lowercase",
+        "n|con|public.user.user_email_lowercase"
+      ],
+      "reads": [
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.user.email"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user",
+        "name": "user_email_lowercase",
+        "value": "\"email\" = lower(\"email\")",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

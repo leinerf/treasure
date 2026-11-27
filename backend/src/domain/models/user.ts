@@ -1,99 +1,68 @@
 import { Role, type User as UserEntity } from "./entity/User.js";
 import { UserRepository } from "../../infra/db/repository/UserRepository.js";
-import { EmailVerificationRepository } from "../../infra/db/repository/EmailVerificationRepository.js";
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
-import { PhotoMetadataRepository } from "../../infra/db/repository/PhotoMetadataRepository.js";
+import { Verification } from "./Verification.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import { type EmailVerification } from "./entity/EmailVerification.js";
 import { type PasswordReset } from "./entity/PasswordReset.js";
-import { Trait, type PhotoMetadata } from "./entity/PhotoMetadata.js";
-import { type Trait as TraitType } from "./entity/PhotoMetadata.js";
 import { config } from "../../config.js";
-import crypto from "node:crypto";
-import { regexConfig } from "../services/regexConfig.js";
+import { ValidationService } from "../services/validationService.js";
+import { TokenService } from "../services/tokenService.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
 import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
-import { InvalidJWTError } from "../errors/InvalidJWTError.js";
+import { InvalidCredentialsError } from "../errors/InvalidCredentialsError.js";
 import { InvalidPasswordResetCodeError } from "../errors/InvalidPasswordResetCode.js";
-import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
 import { UserExistsError } from "../errors/UserExistsError.js";
 import { UserError } from "../errors/UserError.js";
 import { UserNotFoundError } from "../errors/UserNotFoundError.js";
-import { EmailVerificationNotFoundError } from "../errors/EmailVerificationNotFound.js";
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
-import { PhotoMetadataNotFoundError } from "../errors/PhotoMetadataNotFoundError.js";
 import { InvalidRoleError } from "../errors/InvalidRoleError.js";
 import { InvalidOffsetOrLimitError } from "../errors/InvalidOffsetOrLimitError.js";
 import { InvalidQueryError } from "../errors/InvalidQueryError.js";
 
 class User {
-    public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
-        if(!User.validateEmail(email)){
-            throw new InvalidEmailError("Invalid email format: " + email);
-        }
-        const existingEmailCode: EmailVerification | null = await EmailVerificationRepository.findOneByEmail(email);
-        if(existingEmailCode){
-            await EmailVerificationRepository.deleteById(existingEmailCode.id);
-        }
-        const emailCode: EmailVerification = await EmailVerificationRepository.save({
-            email,
-            code: User.generateRandomCode(),
-            expiresAt: User.expireAt()
-        });
-        return { emailCode }
-    }
-
     public static async createNewUser(username: string, email: string, emailVerificationCode: string, password: string): Promise<{ user: UserEntity }> {
-        if(!User.validateUsername(username)){
-            throw new InvalidUsernameError("Invalid username format: " + username);
+        email = ValidationService.normalizeEmail(email);
+        if(!ValidationService.isValidUsername(username)){
+            throw new InvalidUsernameError("Invalid username format");
         }
         
-        if(!User.validateEmail(email)){
-            throw new InvalidEmailError("Invalid email format: " + email);
+        if(!ValidationService.isValidEmail(email)){
+            throw new InvalidEmailError("Invalid email format");
         }
 
-        if(!User.validatePassword(password)){
-            throw new InvalidPasswordError("Invalid password format: " + password);
+        if(!ValidationService.isValidPassword(password)){
+            throw new InvalidPasswordError("Invalid password format");
         }
 
         const existingUserWithEmail: UserEntity | null = await UserRepository.findOneByEmail(email);
         if(existingUserWithEmail){
-            throw new UserExistsError("User with this email already exists: " + email);
+            throw new UserExistsError("An account with this email already exists");
         }
 
         const existingUserWithUsername: UserEntity | null = await UserRepository.findOneByUsername(username);            
         if(existingUserWithUsername){
-            throw new UserExistsError("User with this username already exists: " + username);
+            throw new UserExistsError("An account with this username already exists");
         }
 
-        const existingEmailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, email);
-        if(!existingEmailCode){
-            throw new EmailVerificationNotFoundError(email);
-        }
+        // Counts the attempt, and rejects a wrong, expired or over-guessed code.
+        const existingEmailCode: EmailVerification = await Verification.checkEmailCode(email, emailVerificationCode);
         
-        if(existingEmailCode.expiresAt < new Date()){
-            throw new InvalidEmailVerificationError("Email verification code has expired for email: " + email + " at " + existingEmailCode.expiresAt + ". Request a new verification code.");
-        }
-        
-        const hashedPassword = User.hash(password);
+        const hashedPassword = await User.hash(password);
         if(!hashedPassword){
             throw new UserError("Failed to hash password");
         }
         await UserRepository.saveUserAndDeleteEmailVerification({ username, email, password: hashedPassword, role: Role.User }, existingEmailCode.id);
         const newUser: UserEntity | null = await UserRepository.findOneByUsernameAndEmail(username, email);
         if(!newUser){
-            throw new UserNotFoundError("Failed to retrieve the newly created user with username: " + username + " and email: " + email)
+            throw new UserNotFoundError("Failed to retrieve the newly created user")
         }
         return { user: newUser }
     }
     
-    public static async getUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+    public static async getUser(userId: string): Promise<{ user: UserEntity }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -101,13 +70,9 @@ class User {
         return { user: existingUser }
     }
 
-    public static async updateUsername(newUsername: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
-        if(!User.validateUsername(newUsername)){
-            throw new InvalidUsernameError("could not validate username: " + newUsername);
+    public static async updateUsername(newUsername: string, userId: string): Promise<{ user: UserEntity }> {
+        if(!ValidationService.isValidUsername(newUsername)){
+            throw new InvalidUsernameError("Invalid username format");
         }
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
@@ -125,13 +90,9 @@ class User {
         return { user: updatedUser }
     }
 
-    public static async updatePassword(oldPassword: string, newPassword: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
-        if(!User.validatePassword(newPassword)){
-            throw new InvalidPasswordError("could not validate password: " + newPassword);
+    public static async updatePassword(oldPassword: string, newPassword: string, userId: string): Promise<{ user: UserEntity }> {
+        if(!ValidationService.isValidPassword(newPassword)){
+            throw new InvalidPasswordError("Invalid new password format");
         }
         
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
@@ -140,14 +101,14 @@ class User {
             throw new UserNotFoundError("User not found with id: " + userId);
         }
 
-        if(!User.validateHash(oldPassword, existingUser.password)){
+        if(!await ValidationService.matchesPassword(oldPassword, existingUser.password)){
             throw new InvalidPasswordError("Old password is incorrect");
         }
-        if(User.validateHash(newPassword, existingUser.password)){
+        if(await ValidationService.matchesPassword(newPassword, existingUser.password)){
             throw new InvalidPasswordError("New password cannot be the same as the old password");
         }
         
-        const hashedPassword = User.hash(newPassword);
+        const hashedPassword = await User.hash(newPassword);
         if(!hashedPassword){
             throw new UserError("Failed to hash new password");
         }
@@ -159,91 +120,72 @@ class User {
         return { user: updatedUser }
     }
 
-    public static async createPasswordResetCode(email: string): Promise<{ passwordResetCode: PasswordReset }> {
-        if(!User.validateEmail(email)){
-            throw new InvalidEmailError("Invalid email: " + email);
+    public static async resetPassword(newPassword: string, token: string): Promise<{ user: UserEntity }> {
+        if(!ValidationService.isValidPassword(newPassword)){
+            throw new InvalidPasswordError("Invalid new password");
         }
-        const existingUser = await UserRepository.findOneByEmail(email);
-        if(!existingUser){
-            throw new UserNotFoundError("User not found with email: " + email);
+        const passwordReset: PasswordReset | null = token
+            ? await PasswordResetRepository.findOneByTokenHash(Verification.hashPasswordResetToken(token))
+            : null;
+        if(!passwordReset){
+            throw new PasswordResetCodeNotFoundError("Invalid or expired password reset link");
         }
-        
-        const existingPasswordResetCode: PasswordReset | null = await PasswordResetRepository.findOneByEmail(email);
-        if(existingPasswordResetCode){
-            await PasswordResetRepository.deleteById(existingPasswordResetCode.id);
+        if(ValidationService.isExpired(passwordReset.expiresAt)){
+            await PasswordResetRepository.deleteById(passwordReset.id);
+            throw new InvalidPasswordResetCodeError("Password reset link has expired. Request a new password reset link.");
         }
-
-        const passwordResetCode: PasswordReset | null = await PasswordResetRepository.save({
-            code: User.generateRandomCode(),
-            email: email,
-            expiresAt: User.expireAt()
-        });
-
-        if(!passwordResetCode){
-            throw new PasswordResetCodeNotFoundError("Failed to create password reset code");
+        // The link is only valid while the account still has the email it was sent to.
+        const user = await UserRepository.findOneById(passwordReset.userId);
+        if(!user || user.email !== passwordReset.email){
+            throw new PasswordResetCodeNotFoundError("Invalid or expired password reset link");
         }
-        return { passwordResetCode }
-    }
-
-    public static async resetPassword(newPassword: string, code: string): Promise<{ user: UserEntity }> {
-        const passwordResetCode: PasswordReset | null = await PasswordResetRepository.findOneByCode(code);
-        if(!passwordResetCode){
-            throw new PasswordResetCodeNotFoundError("Password reset code not found: " + code);
-        }
-
-        if(passwordResetCode.expiresAt < new Date()){
-            throw new InvalidPasswordResetCodeError("Password reset code has expired: " + code  + ". Request a new password reset code.");
-        }
-        const user: UserEntity | null = await UserRepository.findOneByEmail(passwordResetCode.email);
-        if(!user){
-            throw new UserNotFoundError("User not found with email: " + passwordResetCode.email);
-        }
-        if(User.validateHash(newPassword, user.password)){
+        if(await ValidationService.matchesPassword(newPassword, user.password)){
             throw new InvalidPasswordError("New password cannot be the same as the old password");
         }
-        if(!User.validatePassword(newPassword)){
-            throw new InvalidPasswordError("Invalid new password: " + newPassword);
-        }
-        const hashedPassword = User.hash(newPassword);
+        const hashedPassword = await User.hash(newPassword);
         if(!hashedPassword){
             throw new UserError("Failed to hash new password");
         }
-        
-        const updatedUser = await UserRepository.updatePasswordAndDeletePasswordResetCode(user.id, hashedPassword, passwordResetCode.id);
+
+        const updatedUser = await UserRepository.updatePasswordAndDeletePasswordResetCode(user.id, hashedPassword, passwordReset.id, passwordReset.email);
         if(!updatedUser){
             throw new UserError("Failed to update user password");
         }
         return { user: updatedUser  }
     }
     
-    public static async updateEmail(newEmail: string, emailVerificationCode: string, jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+    public static async updateEmail(newEmail: string, emailVerificationCode: string, currentPassword: string, userId: string): Promise<{ user: UserEntity; previousEmail: string }> {
+        newEmail = ValidationService.normalizeEmail(newEmail);
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
         }
-
-        const emailCode: EmailVerification | null = await EmailVerificationRepository.findOneByCodeAndEmail(emailVerificationCode, newEmail);
-        if(!emailCode) {
-            throw new EmailVerificationNotFoundError(newEmail);
+        // Re-authenticate: a stolen access token alone must not be able to move the account to another email.
+        if(typeof currentPassword !== "string" || !currentPassword
+            || !await ValidationService.matchesPassword(currentPassword, existingUser.password)){
+            throw new InvalidPasswordError("Current password is incorrect");
         }
+        // After the password check, so only the account owner can learn whether an email is taken,
+        // and before the code is used, so a rejected change doesn't consume it. Without this, the
+        // database's unique constraint would fail the update with a 500.
+        const userWithEmail: UserEntity | null = await UserRepository.findOneByEmail(newEmail);
+        if(userWithEmail && userWithEmail.id !== existingUser.id){
+            throw new UserExistsError("That email is already used by another account");
+        }
+
+        // Counts the attempt, and rejects a wrong, expired or over-guessed code.
+        const emailCode: EmailVerification = await Verification.checkEmailCode(newEmail, emailVerificationCode);
         const updatedUser = await UserRepository.updateEmailAndDeleteEmailVerification(existingUser.id, newEmail, emailCode.id);
         if(!updatedUser){
             throw new UserError("Failed to update user email");
         }
+        const previousEmail = existingUser.email;
         existingUser.email = updatedUser.email;
 
-        return { user: existingUser }
+        return { user: existingUser, previousEmail }
     }
 
-    public static async deleteUser(jwt: string): Promise<{ user: UserEntity }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+    public static async deleteUser(userId: string): Promise<{ user: UserEntity }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -252,75 +194,30 @@ class User {
         return { user: existingUser }
     }
     
-    public static async savePhotoMetadata(filename: string, size: number, trait: TraitType, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
+    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string; userId: string }> {
+        // Request bodies are untrusted: a JSON object or number here would otherwise reach the
+        // database query or bcrypt and fail with a 500. This depends only on the input's shape,
+        // not on whether the account exists, so answering immediately reveals nothing.
+        if(typeof username !== "string" || typeof password !== "string" || !username || !password){
+            throw new InvalidCredentialsError();
         }
-        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
-        if(!existingUser){
-            throw new UserNotFoundError("User not found with id: " + userId);
-        }
-
-        const photoMetadata = await PhotoMetadataRepository.updateProfilePhoto({
-            filename,
-            path,
-            size,
-            trait,
-            userId: existingUser.id
-        });
-        if(!photoMetadata){
-            throw new UserError("Failed to save photo metadata");
-        }
-
-        return { photoMetadata };
-    }
-
-    public static async saveProfilePhotoMetadata(filename: string, size: number, path: string, jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        return User.savePhotoMetadata(filename, size, Trait.PROFILE, path, jwt);
-    }
-
-    public static async getProfilePhotoMetadata(jwt: string): Promise<{ photoMetadata: PhotoMetadata }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
-        const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
-        if(!existingUser){
-            throw new UserNotFoundError("User not found with id: " + userId);
-        }
-
-        const photoMetadata = await PhotoMetadataRepository.findProfilePhoto(existingUser.id);
-        if(!photoMetadata){
-            throw new PhotoMetadataNotFoundError("User does not have profile photo uploaded");
-        }
-        return { photoMetadata };
-    }
-
-    public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string }> {
         const existingUser: UserEntity | null = await UserRepository.findOneByUsername(username);
         if(!existingUser){
-            throw new UserNotFoundError("User does not exist with username: " + username);
+            // Run a real bcrypt comparison anyway, so an unknown username takes as long to reject
+            // as a wrong password. Otherwise the response time would reveal which usernames exist.
+            await ValidationService.matchesPassword(password, await User.dummyPasswordHash());
+            throw new InvalidCredentialsError();
         }
-
-        if(!User.validateHash(password, existingUser.password)){
-            throw new InvalidPasswordError("Invalid password");
+        if(!await ValidationService.matchesPassword(password, existingUser.password)){
+            throw new InvalidCredentialsError();
         }
-        const jwt = User.jwtEncrypt(existingUser.id.toString());
-        if(!jwt){
-            throw new UserError("Error creating JWT");
-        }
-        return { jwt };
+        const jwt = TokenService.createAccessToken(existingUser.id);
+        return { jwt, userId: existingUser.id };
     }
 
-    public static async adminFindUsers(jwt: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
-        const userId = User.jwtDecrypt(jwt);
-        
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+    public static async adminFindUsers(userId: string, offset: number, limit: number): Promise<{users: UserEntity[], count: number }> {
 
-        if(!User.validateOffsetAndLimit(offset, limit)){
+        if(!ValidationService.isValidOffsetAndLimit(offset, limit)){
             throw new InvalidOffsetOrLimitError("Invalid offset or limit");
         }
         
@@ -337,12 +234,8 @@ class User {
         return { users, count };
     }
 
-    public static async adminSearchUsers(jwt: string, query: string): Promise<{ users: UserEntity[] }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
-        if(!query || query.trim().length < 3){
+    public static async adminSearchUsers(userId: string, query: string): Promise<{ users: UserEntity[] }> {
+        if(!ValidationService.isValidSearchQuery(query)){
             throw new InvalidQueryError("Query must be at least 3 characters long");
         }
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
@@ -356,11 +249,7 @@ class User {
         return { users };
     }
 
-    public static async adminDeleteUser(jwt: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
-        const userId = User.jwtDecrypt(jwt);
-        if(!userId){
-            throw new InvalidJWTError("Invalid JWT");
-        }
+    public static async adminDeleteUser(userId: string, userIdToDelete: string): Promise<{ user: UserEntity | null }> {
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
             throw new UserNotFoundError("User not found with id: " + userId);
@@ -372,90 +261,29 @@ class User {
         return { user };
     }
     
-    private static jwtEncrypt(token: string): string | null {
-        try {
-            if(!config.jwt_secret_key ){
-                return null;
-            }
-        return jwt.sign({ id: token }, config.jwt_secret_key, { expiresIn: "1h" });
-        } catch (error) {
-            console.error(error);
-            return null;
-        }
+
+    private static dummyHash: Promise<string> | null = null;
+
+    /**
+     * A bcrypt hash of a random value, made once with the same cost as real passwords so comparing
+     * against it takes the same time. No password can match it.
+     */
+    private static dummyPasswordHash(): Promise<string> {
+        User.dummyHash ??= bcrypt.hash(crypto.randomBytes(32).toString("hex"), Number(config.salt_rounds));
+        return User.dummyHash;
     }
 
-    public static jwtDecrypt(token: string): string | null {
-        try{
-            if(!config.jwt_secret_key){
-                return null;
-            }
-            const decoded = jwt.verify(token, config.jwt_secret_key) as { id: string };
-            return decoded.id;
-        } catch (error) {
-            console.error(error);
-            return null;
-        }
-    }
-
-    private static hash(token: string):  string | null {
+    private static async hash(token: string): Promise<string | null> {
         try {
             if(!config.salt_rounds){
                 return null;
             }
-            const salt = bcrypt.genSaltSync(Number(config.salt_rounds));
-            return bcrypt.hashSync(token, salt);
+            return await bcrypt.hash(token, Number(config.salt_rounds));
         } catch (error) {
             console.error(error);
             return null;
         }
     }
 
-    private static validateHash(token: string, hashed: string): boolean {
-        return bcrypt.compareSync(token, hashed);
-    }
-
-    private static validateUsername(token: string): boolean {
-        if(!token){
-            return false;
-        } else if(!regexConfig.username.regex.test(token)){
-            return false;
-        }
-        return true;
-    }
-    
-    private static validateEmail(token: string): boolean {
-        if(!token){
-            return false;
-        } else if(!regexConfig.email.regex.test(token)){
-            return false;
-        }
-        return true;
-    }
-
-    private static validatePassword(token: string): boolean {
-        if(!token){
-            return false;
-        } else if(!regexConfig.password.regex.test(token)){
-            return false;
-        }
-        return true;
-    }
-
-    private static generateRandomCode(length: number = 6): string {
-        return crypto.randomInt(Math.pow(10, length - 1), Math.pow(10, length)).toString();
-    }
-
-    private static expireAt(minutes: number = 10): Date {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() + minutes);
-        return now;
-    }
-
-    private static validateOffsetAndLimit(offset: number, limit: number): boolean {
-        if (!Number.isInteger(offset) || !Number.isInteger(limit) || offset < 0 || limit < 1 || limit > 100) {
-            return false;
-        }
-        return true;
-    }
 }
 export default User;

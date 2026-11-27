@@ -12,13 +12,17 @@ export const regexInputConfig = {
         ]
     },
     password: {
-        regex: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        // 8 to 72 printable ASCII characters, no spaces: [!-~] is every character from ! to ~, which is
+        // letters, digits and the 32 symbols. Each is one byte, so 72 characters is exactly the most
+        // bcrypt uses; anything longer would be silently ignored. The symbol class is all 32 symbols.
+        regex: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!-/:-@[-`{-~])[!-~]{8,72}$/,
         errorMessage: [
                     "At least one lowercase letter",
                     "At least one uppercase letter",
                     "At least one number",
-                    "At least one special character",
-                    "Minimum 8 characters"
+                    "At least one symbol, such as ! @ # $ % ^ & * - _ .",
+                    "No spaces",
+                    "Between 8 and 72 characters"
                 ]
     },
     verificationCode: {
