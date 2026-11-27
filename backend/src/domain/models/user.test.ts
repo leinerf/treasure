@@ -22,6 +22,7 @@ import { UserExistsError } from '../errors/UserExistsError.js';
 import { UserNotFoundError } from '../errors/UserNotFoundError.js';
 import { InvalidRoleError } from '../errors/InvalidRoleError.js';
 import { InvalidPasswordError } from '../errors/InvalidPasswordError.js';
+import { InvalidCredentialsError } from '../errors/InvalidCredentialsError.js';
 import { PasswordResetCodeNotFoundError } from '../errors/PasswordResetCodeNotFound.js';
 import { InvalidPasswordResetCodeError } from '../errors/InvalidPasswordResetCode.js';
 import { InvalidOffsetOrLimitError } from '../errors/InvalidOffsetOrLimitError.js';
@@ -220,8 +221,13 @@ describe('User Model Tests', () => {
       const { user } = await User.getUser(userId);
       checkUser(user, username, email);
     });
-    test('Fail to get userId with invalid username and password', async () => {
-      await expect(User.createUserAuthentication('invalidUsername', 'invalidPassword')).rejects.toThrow(UserNotFoundError);
+    test('An unknown username and a wrong password fail with the same error and message', async () => {
+      const unknownUser = await User.createUserAuthentication('invalidUsername', 'invalidPassword').catch((error: unknown) => error);
+      const wrongPassword = await User.createUserAuthentication(username, 'Wrong!Password123').catch((error: unknown) => error);
+      expect(unknownUser).toBeInstanceOf(InvalidCredentialsError);
+      expect(wrongPassword).toBeInstanceOf(InvalidCredentialsError);
+      expect((unknownUser as Error).message).toBe('Invalid username or password');
+      expect((wrongPassword as Error).message).toBe((unknownUser as Error).message);
     });
     test('Fail to get a user with an unknown user id', async () => {
       await expect(User.getUser('00000000-0000-0000-0000-000000000000')).rejects.toThrow(UserNotFoundError);

@@ -130,6 +130,17 @@ configuration assumes the backend is not behind a reverse proxy; if deployed
 behind one, configure Express to trust only the actual proxy before relying on
 client IP addresses.
 
+A failed login returns `Invalid username or password` whether the username is
+unknown or the password is wrong, and both take the same time: an unknown
+username is still checked against a dummy bcrypt hash, so response time doesn't
+reveal which usernames exist. Each username and IP address together may fail to
+log in 5 times per 15 minutes; after that, login from that IP for that username
+returns HTTP 429 until the window passes. Successful logins don't count. Because
+the limit is per IP as well as per username, someone guessing a password can't
+lock the owner out of signing in from their own network. An attacker spreading
+guesses across many IP addresses is only slowed per IP; a per-account cap across
+all IPs, or a second factor, would be the next step.
+
 Every backend response carries security headers set by `helmet`
 (`backend/src/app/api/middleware/securityHeaders.ts`). The Content-Security-Policy
 lets the built frontend load scripts, styles, fonts and API requests only from its

@@ -10,6 +10,8 @@ import { InvalidOffsetOrLimitError } from "../errors/InvalidOffsetOrLimitError.j
 import { InvalidQueryError } from "../errors/InvalidQueryError.js";
 import { PasswordResetCodeNotFoundError } from "../errors/PasswordResetCodeNotFound.js";
 import { Role } from "./entity/User.js";
+import { InvalidCredentialsError } from "../errors/InvalidCredentialsError.js";
+import { ValidationService } from "../services/validationService.js";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 
@@ -106,6 +108,29 @@ describe("User validation integration", () => {
             expect((error as Error).message).not.toContain("weak-secret");
             expect(PasswordResetRepository.findOneByTokenHash).not.toHaveBeenCalled();
         });
+    });
+
+    test.each([
+        ["an object username", { $ne: "" }, "Password!123"],
+        ["a number password", "testuser", 12345],
+        ["an empty username", "", "Password!123"],
+        ["a missing password", "testuser", undefined],
+    ])("rejects %s with the generic login error, before querying", async (_label, username, password) => {
+        const compare = vi.spyOn(ValidationService, "matchesPassword");
+        await expect(User.createUserAuthentication(username as string, password as string)).rejects.toBeInstanceOf(InvalidCredentialsError);
+        expect(UserRepository.findOneByUsername).not.toHaveBeenCalled();
+        expect(compare).not.toHaveBeenCalled();
+    });
+
+    test("runs a bcrypt comparison for an unknown username, so it takes as long as a wrong password", async () => {
+        vi.mocked(UserRepository.findOneByUsername).mockResolvedValueOnce(null);
+        const compare = vi.spyOn(ValidationService, "matchesPassword");
+
+        await expect(User.createUserAuthentication("nobody", "Some!Password1")).rejects.toBeInstanceOf(InvalidCredentialsError);
+
+        expect(compare).toHaveBeenCalledOnce();
+        expect(compare.mock.calls[0]![1]).toMatch(/^\$2[aby]\$04\$/);
+        await expect(compare.mock.results[0]!.value).resolves.toBe(false);
     });
 
     test("rejects invalid pagination and search queries before looking the user up", async () => {

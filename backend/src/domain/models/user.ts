@@ -4,6 +4,7 @@ import { EmailVerificationRepository } from "../../infra/db/repository/EmailVeri
 import { PasswordResetRepository } from "../../infra/db/repository/PasswordResetRepository.js";
 import { Verification } from "./Verification.js";
 import bcrypt from "bcrypt";
+import crypto from "node:crypto";
 import { type EmailVerification } from "./entity/EmailVerification.js";
 import { type PasswordReset } from "./entity/PasswordReset.js";
 import { config } from "../../config.js";
@@ -12,6 +13,7 @@ import { TokenService } from "../services/tokenService.js";
 import { InvalidEmailError } from "../errors/InvalidEmailError.js";
 import { InvalidUsernameError } from "../errors/InvalidUsernameError.js";
 import { InvalidPasswordError } from "../errors/InvalidPasswordError.js";
+import { InvalidCredentialsError } from "../errors/InvalidCredentialsError.js";
 import { InvalidPasswordResetCodeError } from "../errors/InvalidPasswordResetCode.js";
 import { InvalidEmailVerificationError } from "../errors/InvalidEmailVerification.js";
 import { UserExistsError } from "../errors/UserExistsError.js";
@@ -207,13 +209,21 @@ class User {
     }
     
     public static async createUserAuthentication(username: string, password: string): Promise<{ jwt: string; userId: string }> {
+        // Request bodies are untrusted: a JSON object or number here would otherwise reach the
+        // database query or bcrypt and fail with a 500. This depends only on the input's shape,
+        // not on whether the account exists, so answering immediately reveals nothing.
+        if(typeof username !== "string" || typeof password !== "string" || !username || !password){
+            throw new InvalidCredentialsError();
+        }
         const existingUser: UserEntity | null = await UserRepository.findOneByUsername(username);
         if(!existingUser){
-            throw new UserNotFoundError("User does not exist with username: " + username);
+            // Run a real bcrypt comparison anyway, so an unknown username takes as long to reject
+            // as a wrong password. Otherwise the response time would reveal which usernames exist.
+            await ValidationService.matchesPassword(password, await User.dummyPasswordHash());
+            throw new InvalidCredentialsError();
         }
-
         if(!await ValidationService.matchesPassword(password, existingUser.password)){
-            throw new InvalidPasswordError("Invalid password");
+            throw new InvalidCredentialsError();
         }
         const jwt = TokenService.createAccessToken(existingUser.id);
         return { jwt, userId: existingUser.id };
@@ -266,7 +276,18 @@ class User {
     }
     
 
-    private static async hash(token: string): Promise<string | null> {
+    private static dummyHash: Promise<string> | null = null;
+
+    /**
+     * A bcrypt hash of a random value, made once with the same cost as real passwords so comparing
+     * against it takes the same time. No password can match it.
+     */
+    private static dummyPasswordHash(): Promise<string> {
+        User.dummyHash ??= bcrypt.hash(crypto.randomBytes(32).toString("hex"), Number(config.salt_rounds));
+        return User.dummyHash;
+    }
+
+        private static async hash(token: string): Promise<string | null> {
         try {
             if(!config.salt_rounds){
                 return null;
