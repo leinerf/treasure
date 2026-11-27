@@ -194,14 +194,13 @@ All five security gaps from the first review are fixed. What's left is hardening
 | 4 | Verification emails could be sent to any address without a cap | 3 per address and 10 per IP per hour. Sign-up still says when an email is already registered, by choice |
 | 5 | Emails were compared case-sensitively | Emails are trimmed and lowercased everywhere, and the database enforces it |
 
-Also fixed: async bcrypt; a password rule that allows all common symbols, rejects spaces and caps at 72 characters; security headers with a Content-Security-Policy; a foreign key and index on `refresh_token`; the hourly cleanup job; hardened uploads; no emails or usernames in logs; access tokens checked once, in middleware; email change signing out other sessions and notifying the old address; a 32-character minimum for the JWT secret; and a `requireRole` middleware on admin routes.
+Also fixed: async bcrypt; a password rule that allows all common symbols, rejects spaces and caps at 72 characters; security headers with a Content-Security-Policy; a foreign key and index on `refresh_token`; the hourly cleanup job; hardened uploads; no emails or usernames in logs; access tokens checked once, in middleware; email change signing out other sessions and notifying the old address; a 32-character minimum for the JWT secret; a `requireRole` middleware on admin routes; and error messages that no longer repeat back the username, email or code that was sent.
 
 **Still open**
 
 - Sign-up reveals whether an email is registered. That's kept on purpose; an app where having an account is itself sensitive should hide it.
 - Guessing spread across many IP addresses is only slowed per IP. A per-account cap across all IPs, or a second factor, would be the next step.
 - In-memory rate limits need a shared store such as Redis before running more than one instance, and `trust proxy` must be set behind a proxy.
-- A few error messages still repeat input back, such as "User with this email already exists" on sign-up.
 
 **Then: boilerplate features**
 

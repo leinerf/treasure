@@ -33,7 +33,7 @@ export class Verification {
     public static async checkEmailCode(email: string, code: string): Promise<EmailVerification> {
         const attempt = await EmailVerificationRepository.recordAttempt(email);
         if (!attempt) {
-            throw new EmailVerificationNotFoundError(email);
+            throw new EmailVerificationNotFoundError();
         }
         const { verification, attempts } = attempt;
         // The row is never deleted here, only by a successful verification or the cleanup job, so
@@ -49,7 +49,7 @@ export class Verification {
             if (attempts === EMAIL_CODE_MAX_ATTEMPTS) {
                 throw new InvalidEmailVerificationError("Too many incorrect codes. Request a new verification code.");
             }
-            throw new EmailVerificationNotFoundError(email);
+            throw new EmailVerificationNotFoundError();
         }
         return verification;
     }
@@ -65,7 +65,7 @@ export class Verification {
     public static async createEmailVerificationCode(email: string): Promise<{ emailCode: EmailVerification }> {
         email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidEmail(email)){
-            throw new InvalidEmailError("Invalid email format: " + email);
+            throw new InvalidEmailError("Invalid email format");
         }
         // Replaces any earlier code for this address, which also resets its attempts.
         const emailCode = await EmailVerificationRepository.issueCodeIfUnderLimit({

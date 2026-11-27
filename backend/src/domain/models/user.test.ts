@@ -184,6 +184,33 @@ describe('User Model Tests', () => {
       await expect(User.createNewUser(username, email, fresh.code, password)).resolves.toMatchObject({ user: { email } });
     });
   });
+  describe('Error messages', () => {
+    beforeEach(async () => { await cleanUpTestDB(); });
+    afterEach(async () => { await cleanUpTestDB(); });
+    const messageOf = (promise: Promise<unknown>) => promise.then(() => '', (error: unknown) => (error as Error).message);
+
+    test("don't repeat back the username, email or code that was sent", async () => {
+      const { emailCode } = await Verification.createEmailVerificationCode(email);
+      await User.createNewUser(username, email, emailCode.code, password);
+      const { emailCode: otherCode } = await Verification.createEmailVerificationCode('second.person@example.com');
+      const { userId } = await User.createUserAuthentication(username, password);
+
+      const messages = [
+        await messageOf(User.createNewUser('9bad-name', 'probe.one@example.com', '123456', password)),
+        await messageOf(User.createNewUser('probeuser', 'probe-not-an-email', '123456', password)),
+        await messageOf(User.createNewUser('probeuser', email, otherCode.code, password)),
+        await messageOf(User.createNewUser(username, 'second.person@example.com', otherCode.code, password)),
+        await messageOf(User.createNewUser('probeuser', 'second.person@example.com', '987654', password)),
+        await messageOf(User.updateUsername('9bad-update', userId)),
+        await messageOf(Verification.createEmailVerificationCode('probe-bad-format')),
+      ];
+
+      expect(messages.every((message) => message.length > 0)).toBe(true);
+      for (const probe of ['9bad-name', 'probe-not-an-email', email, username, 'second.person@example.com', '987654', '9bad-update', 'probe-bad-format']) {
+        expect(messages.filter((message) => message.includes(probe))).toEqual([]);
+      }
+    });
+  });
   describe('Create New User Tests', () => {
     let emailCode: EmailVerification | null = null;
     beforeEach(async () => {

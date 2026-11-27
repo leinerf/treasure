@@ -26,11 +26,11 @@ class User {
     public static async createNewUser(username: string, email: string, emailVerificationCode: string, password: string): Promise<{ user: UserEntity }> {
         email = ValidationService.normalizeEmail(email);
         if(!ValidationService.isValidUsername(username)){
-            throw new InvalidUsernameError("Invalid username format: " + username);
+            throw new InvalidUsernameError("Invalid username format");
         }
         
         if(!ValidationService.isValidEmail(email)){
-            throw new InvalidEmailError("Invalid email format: " + email);
+            throw new InvalidEmailError("Invalid email format");
         }
 
         if(!ValidationService.isValidPassword(password)){
@@ -39,12 +39,12 @@ class User {
 
         const existingUserWithEmail: UserEntity | null = await UserRepository.findOneByEmail(email);
         if(existingUserWithEmail){
-            throw new UserExistsError("User with this email already exists: " + email);
+            throw new UserExistsError("An account with this email already exists");
         }
 
         const existingUserWithUsername: UserEntity | null = await UserRepository.findOneByUsername(username);            
         if(existingUserWithUsername){
-            throw new UserExistsError("User with this username already exists: " + username);
+            throw new UserExistsError("An account with this username already exists");
         }
 
         // Counts the attempt, and rejects a wrong, expired or over-guessed code.
@@ -57,7 +57,7 @@ class User {
         await UserRepository.saveUserAndDeleteEmailVerification({ username, email, password: hashedPassword, role: Role.User }, existingEmailCode.id);
         const newUser: UserEntity | null = await UserRepository.findOneByUsernameAndEmail(username, email);
         if(!newUser){
-            throw new UserNotFoundError("Failed to retrieve the newly created user with username: " + username + " and email: " + email)
+            throw new UserNotFoundError("Failed to retrieve the newly created user")
         }
         return { user: newUser }
     }
@@ -72,7 +72,7 @@ class User {
 
     public static async updateUsername(newUsername: string, userId: string): Promise<{ user: UserEntity }> {
         if(!ValidationService.isValidUsername(newUsername)){
-            throw new InvalidUsernameError("could not validate username: " + newUsername);
+            throw new InvalidUsernameError("Invalid username format");
         }
         const existingUser: UserEntity | null = await UserRepository.findOneById(userId);
         if(!existingUser){
